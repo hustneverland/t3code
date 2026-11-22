@@ -32,6 +32,7 @@ import { SettingsScreen } from "../settings/components/SettingsScreen";
 import { environmentPresentations } from "../../state/presentation";
 import { refillLabel, ResetCredits, resetLabels } from "./UsageLimitsSection";
 import { usageProviderKind, useProviderColors } from "./usageProviders";
+import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 
 const PACE_LABEL = {
   ahead: msg("Ahead of pace"),
@@ -39,21 +40,8 @@ const PACE_LABEL = {
   under: msg("Under pace"),
 } as const;
 
-const LIMIT_BAR_COLORS: Record<string, string> = {
-  codex: "#10A37F",
-  claude: "#D97757",
-  grok: "#F59E0B",
-  antigravity: "#4F6EF7",
-  cursor: "#06B6D4",
-  opencode: "#0EA5E9",
-  pi: "#14B8A6",
-  muse: "#2563EB",
-};
-
-function resolveLimitBarColor(driver: string, fallback: string): string {
-  const kind = usageProviderKind(driver);
-  return (kind && LIMIT_BAR_COLORS[kind]) || fallback;
-}
+// Below this share a window reads as running out and takes the warning tone.
+const LOW_REMAINING_PERCENT = 15;
 
 function accountName(account: LimitAccount, resolve: MessageResolver) {
   if (account.displayName) return account.displayName;
@@ -502,6 +490,7 @@ function SingleAccountWindowRow({
   const navigation = useNavigation();
   const gt = useGT();
   const m = useMessages();
+  const { themeVariables } = useAppearancePreferences();
   const member = pool.columns.find((candidate) => candidate.window !== null);
   if (!member?.window) return null;
   const { account, window } = member;
@@ -509,8 +498,10 @@ function SingleAccountWindowRow({
   const timeLeft = paceRemainingPercent(window, now);
   const credits = account.limits.resetCredits?.availableCount ?? 0;
   const nextRefill = pool.resets.find((reset) => reset.restoresPercent > 0);
-  const barColor = normalizeProviderAccentColor(account.accentColor) ?? color;
-  const percentText = `${remaining}%`;
+  const low = remaining <= LOW_REMAINING_PERCENT;
+  const barColor = low
+    ? themeVariables["--color-warning-foreground"]
+    : (normalizeProviderAccentColor(account.accentColor) ?? color);
 
   return (
     <Pressable
@@ -531,63 +522,66 @@ function SingleAccountWindowRow({
       }
       className={
         divided
-          ? "gap-2 border-t border-border/40 px-4 py-3.5 active:opacity-60"
-          : "gap-2 px-4 py-3.5 active:opacity-60"
+          ? "gap-1.5 border-t border-separator px-4 py-3 active:opacity-60"
+          : "gap-1.5 px-4 py-3 active:opacity-60"
       }
     >
-      <View className="flex-row items-baseline justify-between gap-3">
-        <View className="min-w-0 flex-1 flex-row items-center gap-2">
+      <View className="flex-row items-center justify-between gap-3">
+        {/* One clipped line that wraps: the pace label drops out before the window name truncates. */}
+        <View className="h-[19px] min-w-0 flex-1 flex-row flex-wrap items-center gap-x-2 overflow-hidden">
           {label !== null ? (
-            <Text
-              numberOfLines={1}
-              className="min-w-0 shrink text-sm font-t3-medium text-foreground"
-            >
+            <Text numberOfLines={1} className="max-w-full text-sm font-t3-medium text-foreground">
               {label ?? pool.label}
             </Text>
           ) : null}
           {pool.pace ? (
-            <Text className="shrink-0 text-xs text-foreground-tertiary">
+            <Text className="h-[19px] text-xs leading-[19px] text-foreground-tertiary">
               {m(PACE_LABEL[pool.pace])}
             </Text>
           ) : null}
         </View>
-        <Text className="text-lg font-t3-bold tabular-nums text-foreground">{percentText}</Text>
+        {nextRefill ? (
+          <Text className="shrink-0 text-xs tabular-nums text-foreground-muted">
+            {refillLabel(nextRefill.member.window, now, nextRefill.restoresPercent, m)}
+          </Text>
+        ) : null}
       </View>
 
-      <View className="relative h-2.5 w-full">
-        <PaceGap timeLeft={timeLeft}>
-          <View className="absolute inset-0 rounded-full bg-subtle" />
-          <View className="absolute inset-0 overflow-hidden rounded-full">
-            <AccountSegment
-              remaining={remaining}
-              color={barColor}
-              refillPercent={window.resetsAt ? member.refillPercent : 0}
-              fillOpacity={0.92}
-            />
-          </View>
-        </PaceGap>
-      </View>
-
-      {description || nextRefill || credits > 0 ? (
-        <View className="flex-row items-center justify-between gap-2">
-          <View className="min-w-0 flex-1 gap-0.5">
-            {nextRefill ? (
-              <Text className="text-xs tabular-nums text-foreground-muted">
-                {refillLabel(nextRefill.member.window, now, nextRefill.restoresPercent, m)}
-              </Text>
-            ) : null}
-            {description ? (
-              <Text className="text-xs text-foreground-muted">{description}</Text>
-            ) : null}
-          </View>
-          {credits > 0 ? (
-            <View className="shrink-0 flex-row items-center gap-1 rounded-full bg-subtle px-2 py-0.5">
-              <SymbolView name="ticket" size={12} tintColorClassName="accent-icon" />
-              <Text className="text-xs font-t3-medium tabular-nums text-foreground">{credits}</Text>
-            </View>
-          ) : null}
+      <View className="flex-row items-center gap-3">
+        <View className="min-w-[68px] flex-row items-baseline gap-0.5">
+          <Text
+            className={
+              low
+                ? "text-[26px] leading-[30px] tabular-nums text-warning-foreground"
+                : "text-[26px] leading-[30px] tabular-nums text-foreground"
+            }
+          >
+            {remaining}
+          </Text>
+          <Text className="text-xs text-foreground-muted">%</Text>
         </View>
-      ) : null}
+        <View className="relative h-3.5 flex-1">
+          <PaceGap timeLeft={timeLeft}>
+            <View className="absolute inset-x-0 top-1 bottom-1 rounded-full bg-separator" />
+            <View className="absolute inset-x-0 top-1 bottom-1 overflow-hidden rounded-full">
+              <AccountSegment
+                remaining={remaining}
+                color={barColor}
+                refillPercent={window.resetsAt ? member.refillPercent : 0}
+                fillOpacity={1}
+              />
+            </View>
+          </PaceGap>
+        </View>
+        {credits > 0 ? (
+          <View className="shrink-0 flex-row items-center gap-1 rounded-full bg-subtle-strong px-2 py-0.5">
+            <SymbolView name="ticket" size={12} tintColorClassName="accent-icon" />
+            <Text className="text-xs font-t3-medium tabular-nums text-foreground">{credits}</Text>
+          </View>
+        ) : null}
+      </View>
+
+      {description ? <Text className="text-xs text-foreground-muted">{description}</Text> : null}
     </Pressable>
   );
 }
@@ -613,6 +607,7 @@ export function UsageLimitsSection({
   const notices = collectLimitNotices(selected, m);
   const externalLinks = collectExternalUsageLinks(selected, m);
   const colors = useProviderColors();
+  const { themeVariables } = useAppearancePreferences();
   const gt = useGT();
   return (
     <View className="gap-5">
@@ -628,10 +623,7 @@ export function UsageLimitsSection({
       ) : null}
       {pools.map((pool) => {
         const windows = displayLimitWindows(pool);
-        const barColor = resolveLimitBarColor(
-          pool.driver,
-          colors[usageProviderKind(pool.driver) ?? "codex"],
-        );
+        const providerColor = colors[usageProviderKind(pool.driver) ?? "codex"];
         const singleAccount =
           !wide &&
           windows.length > 0 &&
@@ -658,7 +650,7 @@ export function UsageLimitsSection({
                       <SingleAccountWindowRow
                         key={`${window.kind}:${window.id}`}
                         pool={window}
-                        color={barColor}
+                        color={themeVariables["--color-primary-text"]}
                         now={now}
                         environmentIds={
                           selectedEnvironmentIds === null ? null : [...selectedEnvironmentIds]
@@ -680,7 +672,7 @@ export function UsageLimitsSection({
                     <PoolWindowCard
                       key={`${window.kind}:${window.id}`}
                       pool={window}
-                      color={barColor}
+                      color={providerColor}
                       now={now}
                       environmentIds={
                         selectedEnvironmentIds === null ? null : [...selectedEnvironmentIds]
