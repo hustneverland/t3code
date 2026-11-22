@@ -63,8 +63,13 @@ export function useLanguagePreference(): string {
 
 /** Translates the app into the saved language; "system" follows the device. Mounted once in App. */
 export function I18nProvider(props: { readonly children: ReactNode }) {
+  const preferences = useAtomValue(mobilePreferencesAtom);
+  const preferencesLoaded = !AsyncResult.isInitial(preferences);
+  const savedLanguage = AsyncResult.isSuccess(preferences)
+    ? (preferences.value.language ?? DEFAULT_LOCALE)
+    : DEFAULT_LOCALE;
   const { catalogLocale, formattingLocale } = resolveLocaleSelection(
-    useLanguagePreference(),
+    savedLanguage,
     readSystemLocales(),
     SUPPORTED_LOCALES,
     DEFAULT_LOCALE,
@@ -74,6 +79,11 @@ export function I18nProvider(props: { readonly children: ReactNode }) {
   const selection = useDeferredValue(
     useMemo(() => ({ catalogLocale, formattingLocale }), [catalogLocale, formattingLocale]),
   );
+  // Wait for persisted preferences before mounting children so startup/OTA reload never boots in
+  // English first and leaves memoized or imperative `m()` strings stuck until toggled.
+  if (!preferencesLoaded) {
+    return <View className="flex-1 bg-screen" />;
+  }
   return (
     <GTProvider locale={selection.catalogLocale} fallback={<View className="flex-1 bg-screen" />}>
       <ActiveLocale />
@@ -86,7 +96,10 @@ export function I18nProvider(props: { readonly children: ReactNode }) {
 
 function ActiveLocale() {
   const locale = useLocale();
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- call-time m() outside React reads the committed locale, whose catalog GT has loaded
+  // Sync immediately once LoadedGTProvider has populated GT's cache so sibling children calling
+  // `m()` during the same render pass see the committed locale on frame 1.
+  setActiveLocale(locale);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- keeps activeLocale synchronized if GT re-commits
   useEffect(() => setActiveLocale(locale), [locale]);
   return null;
 }

@@ -1,8 +1,8 @@
 import { T, useGT } from "gt-react-native";
 import * as Dialog from "../../components/ui/Dialog";
 import { ScreenScrollView as ScrollView } from "../../components/ui/ScreenScrollView";
-import * as Application from "expo-application";
 import Constants from "expo-constants";
+import * as Updates from "expo-updates";
 import { settlePromise } from "@t3tools/client-runtime/state/runtime";
 import { useRef, useState } from "react";
 import { Pressable, View } from "react-native";
@@ -14,7 +14,6 @@ import { useDeadlinePassed } from "../../lib/clock";
 import {
   type AppUpdateCheckState,
   isAppUpdateCheckAvailable,
-  registerHiddenUpdateTap,
   runAppUpdateCheck,
 } from "../updates/app-updates";
 import { SettingsRow } from "./components/SettingsRow";
@@ -51,16 +50,11 @@ function AppSettingsSection() {
   const updateState =
     checkState.state === "current" && confirmationExpired ? "idle" : checkState.state;
   const updateInFlight = useRef(false);
-  const hiddenUpdateTapCount = useRef(0);
 
   const version = Constants.expoConfig?.version ?? "0.0.0";
-  // Match app.config.ts's production fallback to avoid mislabeling builds as development.
-  const variant = (Constants.expoConfig?.extra?.appVariant as string | undefined) ?? "production";
-  const variantLabel = variant === "production" ? "" : capitalize(variant);
-  // EAS assigns build numbers remotely; only the installed binary knows its own.
-  const build = Application.nativeBuildVersion;
-  const versionWithBuild = build ? `${version} (${build})` : version;
-  const versionLabel = variantLabel ? `${versionWithBuild} · ${variantLabel}` : versionWithBuild;
+  const otaId = !Updates.isEmbeddedLaunch && Updates.updateId ? Updates.updateId.slice(0, 7) : null;
+  const otaLabel = otaId ? `OTA · ${otaId}` : null;
+  const versionLabel = `v${version}`;
   const updateCheckAvailable = isAppUpdateCheckAvailable();
   const busy =
     updateState === "checking" || updateState === "downloading" || updateState === "restarting";
@@ -84,15 +78,6 @@ function AppSettingsSection() {
     updateInFlight.current = false;
   }
 
-  function handleVersionPress() {
-    if (!updateCheckAvailable || updateInFlight.current) return;
-    const tap = registerHiddenUpdateTap(hiddenUpdateTapCount.current);
-    hiddenUpdateTapCount.current = tap.nextCount;
-    if (tap.shouldCheck) {
-      void checkForUpdate();
-    }
-  }
-
   const statusLabel =
     updateState === "checking"
       ? gt("Checking…")
@@ -105,27 +90,6 @@ function AppSettingsSection() {
             : updateState === "current"
               ? gt("Up to date")
               : null;
-
-  const versionRow = (
-    <View className="flex-row items-center gap-4 p-4">
-      <SymbolView
-        name="info.circle"
-        size={22}
-        tintColorClassName="accent-icon"
-        type="monochrome"
-        weight="regular"
-      />
-      <Text className="flex-1 text-lg text-foreground">
-        <T>Version</T>
-      </Text>
-      <View className="items-end">
-        <Text className="text-lg text-foreground-muted">{versionLabel}</Text>
-        {statusLabel ? (
-          <Text className="text-xs text-foreground-muted/70">{statusLabel}</Text>
-        ) : null}
-      </View>
-    </View>
-  );
 
   return (
     <SettingsSection title={gt("App", { $context: "settings section about this mobile app" })}>
@@ -141,22 +105,45 @@ function AppSettingsSection() {
         target="SettingsOpenSourceLicenses"
       />
       <SettingsRow icon="doc.text" label={gt("Legal")} fullScreenTarget="SettingsLegal" />
+      <View className="flex-row items-center gap-4 p-4">
+        <SymbolView
+          name="info.circle"
+          size={22}
+          tintColorClassName="accent-icon"
+          type="monochrome"
+          weight="regular"
+        />
+        <Text className="flex-1 text-lg text-foreground">
+          <T>Version</T>
+        </Text>
+        <View className="items-end">
+          <Text className="text-lg text-foreground-muted">{versionLabel}</Text>
+          {otaLabel ? <Text className="text-xs text-foreground-muted/70">{otaLabel}</Text> : null}
+        </View>
+      </View>
       {updateCheckAvailable ? (
         <Pressable
-          accessibilityLabel={gt("Version {version}", { version: versionLabel })}
-          accessibilityRole="text"
+          accessibilityLabel={gt("Check for updates")}
+          accessibilityRole="button"
           disabled={busy}
-          onPress={handleVersionPress}
+          onPress={() => void checkForUpdate()}
+          style={({ pressed }) => ({ opacity: pressed || busy ? 0.5 : 1 })}
         >
-          {versionRow}
+          <View className="flex-row items-center gap-4 border-t border-border/50 p-4">
+            <SymbolView
+              name="arrow.down.circle"
+              size={22}
+              tintColorClassName="accent-icon"
+              type="monochrome"
+              weight="regular"
+            />
+            <Text className="flex-1 text-lg text-foreground">{gt("Check for updates")}</Text>
+            {statusLabel ? (
+              <Text className="text-sm text-foreground-muted">{statusLabel}</Text>
+            ) : null}
+          </View>
         </Pressable>
-      ) : (
-        versionRow
-      )}
+      ) : null}
     </SettingsSection>
   );
-}
-
-function capitalize(value: string): string {
-  return value.length > 0 ? value.charAt(0).toUpperCase() + value.slice(1) : value;
 }
