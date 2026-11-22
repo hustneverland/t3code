@@ -118,6 +118,24 @@ function resolveAppVariant(value: string | undefined): AppVariant {
 }
 
 const variant = VARIANT_CONFIG[APP_VARIANT];
+const customIconPreset = (
+  process.env.T3CODE_MOBILE_ICON_PRESET ?? repoEnv.T3CODE_MOBILE_ICON_PRESET
+)
+  ?.trim()
+  .toLowerCase();
+const variantAssets =
+  customIconPreset === "xingye"
+    ? {
+        ...variant.assets,
+        appIcon: "./assets/personal-icon-xingye.png",
+        splashIcon: "./assets/personal-icon-xingye.png",
+        androidAdaptiveForeground: "./assets/personal-adaptive-xingye.png",
+        androidAdaptiveBackgroundColor: "#0B132B",
+        androidAdaptiveBackgroundImage: undefined,
+        androidSplashIcon: "./assets/personal-splash-xingye.png",
+        androidNotificationColor: "#38BDF8",
+      }
+    : variant.assets;
 // Copied thread links open the app. app.t3.codes/.well-known lists every variant's identifiers.
 const HOSTED_APP_HOST = "app.t3.codes";
 const iosBundleIdentifier = isIosPersonalTeamBuild
@@ -257,7 +275,7 @@ const config: ExpoConfig = {
     policy: runtimeVersionPolicy,
   },
   orientation: "portrait",
-  icon: variant.assets.appIcon,
+  icon: variantAssets.appIcon,
   userInterfaceStyle: "automatic",
   updates: {
     enabled: repoEnv.T3CODE_MOBILE_UPDATES_ENABLED !== "0",
@@ -266,7 +284,7 @@ const config: ExpoConfig = {
     fallbackToCacheTimeout: 0,
   },
   ios: {
-    icon: variant.assets.iosIcon,
+    icon: variantAssets.iosIcon,
     supportsTablet: true,
     requireFullScreen: process.env.T3_SHOWCASE_CAPTURE_BUILD === "1",
     bundleIdentifier: iosBundleIdentifier,
@@ -311,18 +329,18 @@ const config: ExpoConfig = {
     },
   },
   android: {
-    icon: variant.assets.appIcon,
+    icon: variantAssets.appIcon,
     package: androidPackage,
     ...(repoEnv.T3CODE_ANDROID_GOOGLE_SERVICES_FILE
       ? { googleServicesFile: repoEnv.T3CODE_ANDROID_GOOGLE_SERVICES_FILE }
       : {}),
     adaptiveIcon: {
-      backgroundColor: variant.assets.androidAdaptiveBackgroundColor,
-      ...(variant.assets.androidAdaptiveBackgroundImage
-        ? { backgroundImage: variant.assets.androidAdaptiveBackgroundImage }
+      backgroundColor: variantAssets.androidAdaptiveBackgroundColor,
+      ...(variantAssets.androidAdaptiveBackgroundImage
+        ? { backgroundImage: variantAssets.androidAdaptiveBackgroundImage }
         : {}),
-      foregroundImage: variant.assets.androidAdaptiveForeground,
-      monochromeImage: variant.assets.androidMonochromeIcon,
+      foregroundImage: variantAssets.androidAdaptiveForeground,
+      monochromeImage: variantAssets.androidMonochromeIcon,
     },
     // JS back dispatch needs RN's Android 16 shim and withAndroidPredictiveBackCompat on Android 13-15.
     predictiveBackGestureEnabled: true,
@@ -338,7 +356,7 @@ const config: ExpoConfig = {
     ],
   },
   web: {
-    favicon: variant.assets.appIcon,
+    favicon: variantAssets.appIcon,
   },
   plugins: [
     "expo-asset",
@@ -374,8 +392,8 @@ const config: ExpoConfig = {
     [
       "expo-notifications",
       {
-        icon: variant.assets.androidNotificationIcon,
-        color: variant.assets.androidNotificationColor,
+        icon: variantAssets.androidNotificationIcon,
+        color: variantAssets.androidNotificationColor,
         mode: APP_VARIANT === "development" ? "development" : "production",
       },
     ],
@@ -387,10 +405,10 @@ const config: ExpoConfig = {
       {
         androidIcons: {
           shortcut_icon: {
-            foregroundImage: variant.assets.androidAdaptiveForeground,
-            backgroundColor: variant.assets.androidAdaptiveBackgroundColor,
-            ...(variant.assets.androidAdaptiveBackgroundImage
-              ? { backgroundImage: variant.assets.androidAdaptiveBackgroundImage }
+            foregroundImage: variantAssets.androidAdaptiveForeground,
+            backgroundColor: variantAssets.androidAdaptiveBackgroundColor,
+            ...(variantAssets.androidAdaptiveBackgroundImage
+              ? { backgroundImage: variantAssets.androidAdaptiveBackgroundImage }
               : {}),
           },
         },
@@ -425,19 +443,19 @@ const config: ExpoConfig = {
     [
       "expo-splash-screen",
       {
-        image: variant.assets.splashIcon,
+        image: variantAssets.splashIcon,
         resizeMode: "contain",
         backgroundColor: "#ffffff",
         imageWidth: 220,
         dark: {
-          image: variant.assets.splashIcon,
+          image: variantAssets.splashIcon,
           backgroundColor: "#0a0a0a",
         },
         android: {
           // Android 12+ masks the central two thirds of the 288dp canvas; adaptive layers avoid clipped corners.
-          image: variant.assets.androidSplashIcon,
+          image: variantAssets.androidSplashIcon,
           imageWidth: 288,
-          dark: { image: variant.assets.androidSplashIcon },
+          dark: { image: variantAssets.androidSplashIcon },
         },
       },
     ],

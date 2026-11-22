@@ -38,7 +38,8 @@ jobs:
     env:
       APP_VARIANT: production
       T3CODE_ANDROID_PACKAGE: io.github.hustneverland.t3code
-      T3CODE_MOBILE_APP_NAME: T3 Code Personal
+      T3CODE_MOBILE_APP_NAME: 星野
+      T3CODE_MOBILE_ICON_PRESET: xingye
       MOBILE_VERSION_POLICY: appVersion
       T3CODE_MOBILE_UPDATES_ENABLED: "1"
       T3CODE_MOBILE_UPDATES_URL: https://t3-remote.shiyanjia.com:18443/ota/manifest.json
