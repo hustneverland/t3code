@@ -43,6 +43,9 @@ function collapsedEditorInset(text: ScaledTextRole): number {
 const EXPANDED_EDITOR_INSET = 14;
 // Room under the expanded editor for the toolbar row.
 const EXPANDED_EDITOR_BOTTOM = 52;
+const ALWAYS_EXPANDED_EDITOR_INSET = 16;
+const ALWAYS_EXPANDED_EDITOR_TOP = 4;
+const ALWAYS_EXPANDED_EDITOR_BOTTOM = 44;
 
 export function useCompactComposerEditor(
   text: ScaledTextRole,
@@ -74,7 +77,10 @@ export function useCompactComposerEditor(
   const compactRowHeight = Math.max(44, minimum);
   const compactBottom = (compactRowHeight - minimum) / 2;
   const isRTL = I18nManager.isRTL;
-  const expandedRowHeight = height + EXPANDED_EDITOR_BOTTOM;
+  const expandedInset = alwaysExpanded ? ALWAYS_EXPANDED_EDITOR_INSET : EXPANDED_EDITOR_INSET;
+  const expandedTop = alwaysExpanded ? ALWAYS_EXPANDED_EDITOR_TOP : 0;
+  const expandedBottom = alwaysExpanded ? ALWAYS_EXPANDED_EDITOR_BOTTOM : EXPANDED_EDITOR_BOTTOM;
+  const expandedRowHeight = height + expandedTop + expandedBottom;
   const expansion = useDerivedValue(() => {
     const target = isExpanded ? 1 : 0;
     return animate
@@ -101,10 +107,10 @@ export function useCompactComposerEditor(
       // The compact slot is unknown until its first layout, so the editor would draw over the + button.
       opacity: isExpanded || editorWidth.value > 0 ? 1 : 0,
       height,
-      top: compactBottom * (1 - progress),
-      left: compactInsets.left + (EXPANDED_EDITOR_INSET - compactInsets.left) * progress,
+      top: compactBottom * (1 - progress) + expandedTop * progress,
+      left: compactInsets.left + (expandedInset - compactInsets.left) * progress,
       // Snapping the far edge keeps the line from rewrapping while the near edge moves.
-      right: isExpanded ? EXPANDED_EDITOR_INSET : compactInsets.right,
+      right: isExpanded ? expandedInset : compactInsets.right,
     };
   });
   const containerStyle = useAnimatedStyle(() => ({
