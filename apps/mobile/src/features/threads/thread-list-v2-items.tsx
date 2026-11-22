@@ -235,7 +235,7 @@ const LEGACY_MENU_ACTIONS: MenuAction[] = [
 function ThreadListV2Section(props: {
   readonly label: string;
   readonly pane?: "screen" | "sidebar";
-  readonly tone?: "default" | "snoozed";
+  readonly tone?: "default" | "snoozed" | "working";
   readonly disclosure?: {
     readonly expanded: boolean;
     readonly disabled?: boolean;
@@ -245,6 +245,7 @@ function ThreadListV2Section(props: {
   };
 }) {
   const snoozed = props.tone === "snoozed";
+  const working = props.tone === "working";
   const sidebarPane = props.pane === "sidebar";
   const className = cn(
     "mb-1.5 mt-4 flex-row items-center gap-2.5",
@@ -257,9 +258,11 @@ function ThreadListV2Section(props: {
           "text-xs font-t3-medium",
           sidebarPane
             ? "text-drawer-foreground-muted"
-            : snoozed
-              ? "text-foreground-secondary"
-              : "text-foreground-tertiary",
+            : working
+              ? "text-primary-text"
+              : snoozed
+                ? "text-foreground-secondary"
+                : "text-foreground-tertiary",
         )}
       >
         {props.label}
@@ -267,7 +270,11 @@ function ThreadListV2Section(props: {
       <View
         className={cn(
           "h-px flex-1",
-          snoozed ? "bg-primary/20" : sidebarPane ? "bg-drawer-border" : "bg-border",
+          snoozed || (working && !sidebarPane)
+            ? "bg-primary/20"
+            : sidebarPane
+              ? "bg-drawer-border"
+              : "bg-border",
         )}
       />
       {props.disclosure ? (
@@ -356,7 +363,7 @@ function ThreadListV2ShelfHeader(
     <ThreadListV2Section
       label={props.expanded ? label : gt("{label} ({count})", { label, count: props.count })}
       pane={props.pane}
-      tone={props.kind === "snoozed" ? "snoozed" : "default"}
+      tone={props.kind === "settled" ? "default" : props.kind}
       disclosure={{
         expanded: props.expanded,
         disabled: props.disabled,
