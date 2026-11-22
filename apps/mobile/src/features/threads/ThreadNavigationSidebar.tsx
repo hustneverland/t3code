@@ -64,6 +64,7 @@ import { WorkspaceSidebarColumn } from "../layout/workspace/WorkspaceSidebarColu
 import {
   ThreadListV2PendingRow,
   ThreadListV2Row,
+  ThreadListV2SectionDivider,
   ThreadListV2SettledShelfHeader,
   ThreadListV2ShowMoreRow,
   ThreadListV2SnoozedShelfHeader,
@@ -497,6 +498,13 @@ function ThreadNavigationSidebarPane(props: ThreadNavigationSidebarProps) {
             disabled={item.disabled}
             expanded={item.expanded}
             onToggle={toggleWorkingShelf}
+            pane="sidebar"
+          />
+        );
+      case "v2-active-divider":
+        return (
+          <ThreadListV2SectionDivider
+            label={gt("Chats", { $context: "navigation tab, list of chat threads" })}
             pane="sidebar"
           />
         );

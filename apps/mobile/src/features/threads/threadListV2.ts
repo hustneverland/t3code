@@ -465,6 +465,11 @@ export interface ThreadListV2WorkingShelfListItem {
   readonly disabled: boolean;
 }
 
+export interface ThreadListV2ActiveDividerListItem {
+  readonly type: "v2-active-divider";
+  readonly key: "v2-active-divider";
+}
+
 export interface ThreadListV2SnoozedShelfListItem {
   readonly type: "v2-snoozed-shelf";
   readonly key: "v2-snoozed-shelf";
@@ -486,6 +491,7 @@ export type ThreadListV2ListItem =
   | ThreadListV2ThreadListItem
   | ThreadListV2PendingListItem
   | ThreadListV2WorkingShelfListItem
+  | ThreadListV2ActiveDividerListItem
   | ThreadListV2SnoozedShelfListItem
   | ThreadListV2SettledShelfListItem;
 
@@ -496,6 +502,7 @@ export function isThreadListV2ListItem(value: {
     value.type === "v2-thread" ||
     value.type === "v2-pending" ||
     value.type === "v2-working-shelf" ||
+    value.type === "v2-active-divider" ||
     value.type === "v2-snoozed-shelf" ||
     value.type === "v2-settled-shelf"
   );
@@ -539,6 +546,8 @@ export function threadListV2ListItemsAreEqual(
         previous.expanded === item.expanded &&
         previous.disabled === item.disabled
       );
+    case "v2-active-divider":
+      return previous.type === "v2-active-divider";
     case "v2-snoozed-shelf":
       return (
         previous.type === "v2-snoozed-shelf" &&
@@ -667,7 +676,13 @@ export function buildThreadListV2ListItems(input: {
       disabled: shelfDisabled,
     });
     result.push(...threadItems.slice(workingStart, workingEnd));
-    result.push(...threadItems.slice(workingEnd, activeEnd));
+    if (activeEnd > workingEnd) {
+      result.push({
+        type: "v2-active-divider",
+        key: "v2-active-divider",
+      });
+      result.push(...threadItems.slice(workingEnd, activeEnd));
+    }
   } else {
     result.push(...threadItems.slice(0, activeEnd));
   }

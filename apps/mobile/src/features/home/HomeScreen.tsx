@@ -75,6 +75,7 @@ import { useQueuedThreadKeys } from "../../state/use-thread-outbox";
 import {
   ThreadListV2PendingRow,
   ThreadListV2Row,
+  ThreadListV2SectionDivider,
   ThreadListV2SettledShelfHeader,
   ThreadListV2ShowMoreRow,
   ThreadListV2SnoozedShelfHeader,
@@ -504,6 +505,13 @@ export function HomeScreen(props: HomeScreenProps) {
           disabled={item.disabled}
           expanded={item.expanded}
           onToggle={toggleWorkingShelf}
+        />
+      );
+    }
+    if (item.type === "v2-active-divider") {
+      return (
+        <ThreadListV2SectionDivider
+          label={gt("Chats", { $context: "navigation tab, list of chat threads" })}
         />
       );
     }

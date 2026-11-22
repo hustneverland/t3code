@@ -1847,6 +1847,7 @@ describe("Working section beta", () => {
       "queued",
       "v2-working-shelf",
       "working",
+      "v2-active-divider",
       "active",
       "v2-snoozed-shelf",
       "snoozed",
@@ -1875,7 +1876,7 @@ describe("Working section beta", () => {
     });
     expect(
       collapsedItems.map((item) => (item.type === "v2-thread" ? item.item.thread.id : item.type)),
-    ).toEqual(["v2-working-shelf", "active"]);
+    ).toEqual(["v2-working-shelf", "v2-active-divider", "active"]);
   });
 });
 
