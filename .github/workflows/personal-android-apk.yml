@@ -44,10 +44,15 @@ jobs:
       APP_VARIANT: preview
       T3CODE_ANDROID_PACKAGE: io.github.hustneverland.t3code
       T3CODE_MOBILE_APP_NAME: T3 Code Personal
-      T3CODE_MOBILE_UPDATES_ENABLED: "0"
+      MOBILE_VERSION_POLICY: appVersion
+      T3CODE_MOBILE_UPDATES_ENABLED: "1"
+      T3CODE_MOBILE_UPDATES_URL: https://t3-remote.shiyanjia.com:18443/ota/manifest.json
       EXPO_NO_GIT_STATUS: "1"
       NODE_OPTIONS: --max-old-space-size=4096
       ABI: ${{ inputs.abi || 'arm64-v8a' }}
+      CCACHE_DIR: /home/runner/.cache/ccache
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
@@ -63,15 +68,24 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Cache Gradle
+      - name: Cache Gradle & ccache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: personal-android-gradle-${{ runner.os }}-${{ hashFiles('apps/mobile/package.json', 'apps/mobile/app.config.ts', 'pnpm-lock.yaml') }}
+            ~/.cache/ccache
+          key: personal-android-gradle-ccache-${{ runner.os }}-${{ hashFiles('apps/mobile/package.json', 'apps/mobile/app.config.ts', 'pnpm-lock.yaml') }}
           restore-keys: |
-            personal-android-gradle-${{ runner.os }}-
+            personal-android-gradle-ccache-${{ runner.os }}-
+
+      - name: Configure Gradle caching & ccache
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ccache
+          mkdir -p ~/.gradle "${CCACHE_DIR}"
+          printf 'org.gradle.caching=true\norg.gradle.daemon=false\n' > ~/.gradle/gradle.properties
+          ccache --max-size=2G
+          ccache --zero-stats
 
       - name: Enable T3 Connect public config
         run: cp .env.example .env

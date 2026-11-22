@@ -132,6 +132,11 @@ if (customAndroidPackage && !ANDROID_PACKAGE_PATTERN.test(customAndroidPackage))
 }
 const androidPackage = customAndroidPackage || variant.androidPackage;
 const appName = repoEnv.T3CODE_MOBILE_APP_NAME?.trim() || variant.appName;
+const customUpdatesUrl = repoEnv.T3CODE_MOBILE_UPDATES_URL?.trim();
+if (customUpdatesUrl && !/^https:\/\/.+/.test(customUpdatesUrl)) {
+  throw new Error("T3CODE_MOBILE_UPDATES_URL must be an absolute https:// URL.");
+}
+const updatesUrl = customUpdatesUrl || "https://u.expo.dev/d763fcb8-d37c-41ea-a773-b54a0ab4a454";
 
 const dmSansFonts = {
   regular: "@expo-google-fonts/dm-sans/400Regular/DMSans_400Regular.ttf",
@@ -256,7 +261,7 @@ const config: ExpoConfig = {
   userInterfaceStyle: "automatic",
   updates: {
     enabled: repoEnv.T3CODE_MOBILE_UPDATES_ENABLED !== "0",
-    url: "https://u.expo.dev/d763fcb8-d37c-41ea-a773-b54a0ab4a454",
+    url: updatesUrl,
     checkAutomatically: "ON_LOAD",
     fallbackToCacheTimeout: 0,
   },
