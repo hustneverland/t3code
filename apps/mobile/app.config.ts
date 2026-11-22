@@ -123,6 +123,15 @@ const HOSTED_APP_HOST = "app.t3.codes";
 const iosBundleIdentifier = isIosPersonalTeamBuild
   ? personalTeamBundleIdentifier!
   : variant.iosBundleIdentifier;
+const ANDROID_PACKAGE_PATTERN = /^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z][a-zA-Z0-9_]*)+$/;
+const customAndroidPackage = repoEnv.T3CODE_ANDROID_PACKAGE?.trim();
+if (customAndroidPackage && !ANDROID_PACKAGE_PATTERN.test(customAndroidPackage)) {
+  throw new Error(
+    "T3CODE_ANDROID_PACKAGE must be a valid Android applicationId such as com.example.t3code.",
+  );
+}
+const androidPackage = customAndroidPackage || variant.androidPackage;
+const appName = repoEnv.T3CODE_MOBILE_APP_NAME?.trim() || variant.appName;
 
 const dmSansFonts = {
   regular: "@expo-google-fonts/dm-sans/400Regular/DMSans_400Regular.ttf",
@@ -233,7 +242,7 @@ const sharingPlugin: NonNullable<ExpoConfig["plugins"]>[number] = [
 // Match iOS PostScript names on Android so RN and the native composer share fonts before runtime loading.
 
 const config: ExpoConfig = {
-  name: variant.appName,
+  name: appName,
   slug: "t3-code",
   platforms: ["ios", "android"],
   scheme: variant.scheme,
@@ -298,7 +307,7 @@ const config: ExpoConfig = {
   },
   android: {
     icon: variant.assets.appIcon,
-    package: variant.androidPackage,
+    package: androidPackage,
     ...(repoEnv.T3CODE_ANDROID_GOOGLE_SERVICES_FILE
       ? { googleServicesFile: repoEnv.T3CODE_ANDROID_GOOGLE_SERVICES_FILE }
       : {}),
