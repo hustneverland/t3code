@@ -82,7 +82,7 @@ function main() {
   const buildEnv = {
     ...publicEnv,
     ...process.env,
-    APP_VARIANT: "preview",
+    APP_VARIANT: "production",
     T3CODE_ANDROID_PACKAGE: "io.github.hustneverland.t3code",
     T3CODE_MOBILE_APP_NAME: "T3 Code Personal",
     MOBILE_VERSION_POLICY: "appVersion",
