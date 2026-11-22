@@ -467,11 +467,12 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
   const { usesLargeControls, paddingVertical: surfacePaddingVertical } = useComposerChrome();
   const [compactRowWidth, setCompactRowWidth] = useState(0);
   const compactAttachmentLimit = compactRowWidth >= 500 ? 3 : 1;
-  // Animate only while typing; a thread switch or restored draft lands in place.
+  // Always keep the two-row composer open so model name and reasoning effort stay visible.
   const compactEditor = useCompactComposerEditor(
     bodyText,
     draftMessage,
     Platform.OS === "ios" && isFocused,
+    { alwaysExpanded: true },
   );
   const showsCompactDictation = isVoiceInputPresented;
   const isToolbarVisible = isVoiceInputPresented;
