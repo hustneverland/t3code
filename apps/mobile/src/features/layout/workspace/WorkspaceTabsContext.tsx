@@ -1,15 +1,14 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react";
 import { AsyncResult, Atom } from "effect/reactivity";
 import { createContext, use, useState, type Dispatch, type ReactNode } from "react";
+import { Platform } from "react-native";
 
 import { mobilePreferencesAtom, saveMobilePreferences } from "../../../state/preferences";
 import { useAtomCommand } from "../../../state/use-atom-command";
 import {
   isSharedSlotTab,
-  sharedSlotAbsentee,
-  navigationCustomizationAvailable,
-  resolveHiddenNavigationTabs,
   resolveSelectedNavigationTab,
+  workspaceHiddenNavigationTabs,
 } from "./navigation-tab-order";
 import {
   initialWorkspaceTabsState,
@@ -46,12 +45,11 @@ function resolveWorkspaceTabsSelection(
 ): WorkspaceTabsState {
   const saved = AsyncResult.isSuccess(preferences) ? preferences.value : undefined;
   const order = resolveWorkspaceTabOrder(saved?.navigationTabOrder);
-  const hidden = [
-    ...(navigationCustomizationAvailable()
-      ? resolveHiddenNavigationTabs(saved?.hiddenNavigationTabs)
-      : []),
-    sharedSlotAbsentee(state.selectedTab, saved?.sharedSlotTab),
-  ];
+  const hidden = workspaceHiddenNavigationTabs({
+    platform: Platform.OS,
+    selected: state.selectedTab,
+    preferences: saved,
+  });
   const selected = resolveSelectedNavigationTab(order, hidden, state.selectedTab);
   return selected && selected !== state.selectedTab
     ? workspaceTabsReducer(state, { type: "select", tab: selected })

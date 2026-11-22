@@ -11,6 +11,7 @@ import {
   resolveNavigationTabOrder,
   selectedNavigationTab,
   visibleNavigationTabs,
+  workspaceHiddenNavigationTabs,
 } from "./navigation-tab-order";
 
 describe("navigation tab order", () => {
@@ -35,6 +36,22 @@ describe("navigation tab order", () => {
     expect(sharedSlotAbsentee("threads", "issues")).toBe("pullRequests");
     expect(sharedSlotAbsentee("usage", undefined)).toBe("issues");
   });
+
+  it.each(["pullRequests", "issues"] as const)(
+    "hides the Android shared slot even after opening %s",
+    (selected) => {
+      const preferences = { sharedSlotTab: selected };
+      const hidden = workspaceHiddenNavigationTabs({ platform: "android", selected, preferences });
+      expect(visibleNavigationTabs(undefined, hidden)).toEqual(["threads", "usage"]);
+      expect(resolveSelectedNavigationTab(undefined, hidden, selected)).toBe("threads");
+      expect(
+        visibleNavigationTabs(
+          undefined,
+          workspaceHiddenNavigationTabs({ platform: "ios", selected, preferences }),
+        ),
+      ).toEqual(["threads", selected, "usage"]);
+    },
+  );
 
   it("moves a section without changing the relative order of the others", () => {
     for (const tab of NAVIGATION_TAB_ORDER) {

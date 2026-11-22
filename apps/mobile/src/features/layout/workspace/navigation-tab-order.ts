@@ -25,6 +25,23 @@ export function navigationCustomizationAvailable(
   return registeredSections > 4;
 }
 
+export function workspaceHiddenNavigationTabs(input: {
+  readonly platform: string;
+  readonly selected: NavigationTab;
+  readonly preferences:
+    | { readonly hiddenNavigationTabs?: readonly unknown[]; readonly sharedSlotTab?: unknown }
+    | undefined;
+}): readonly NavigationTab[] {
+  const hidden = navigationCustomizationAvailable()
+    ? resolveHiddenNavigationTabs(input.preferences?.hiddenNavigationTabs)
+    : [];
+  const hiddenSharedTabs =
+    input.platform === "android"
+      ? SHARED_SLOT_TABS
+      : [sharedSlotAbsentee(input.selected, input.preferences?.sharedSlotTab)];
+  return [...hidden, ...hiddenSharedTabs];
+}
+
 export const NAVIGATION_TAB_LABELS: Readonly<Record<NavigationTab, string>> = {
   threads: msg("Threads", { $context: "navigation tab, list of chat threads" }),
   pullRequests: msg("Pulls", { $context: "navigation tab, pull requests" }),
