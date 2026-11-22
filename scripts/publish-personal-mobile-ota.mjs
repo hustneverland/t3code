@@ -114,7 +114,17 @@ function main() {
   const tmpExportDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "t3-mobile-ota-"));
   try {
     console.log(`[ota] Exporting Android JS/Hermes bundle (runtimeVersion=${runtimeVersion})...`);
-    runExpo(["export", "--platform", "android", "--output-dir", tmpExportDir]);
+    try {
+      runExpo(["export", "--platform", "android", "--output-dir", tmpExportDir]);
+    } catch (error) {
+      // On Windows, Metro/native worker teardown can exit 0xC0000005 after writing all output.
+      const metadataPath = NodePath.join(tmpExportDir, "metadata.json");
+      const status = typeof error === "object" && error !== null ? error.status : undefined;
+      if (!(isWindows && status === 3221225477 && NodeFS.existsSync(metadataPath))) {
+        throw error;
+      }
+      console.warn("[ota] Ignoring Windows Metro teardown exit 0xC0000005 after completed export.");
+    }
 
     const metadata = JSON.parse(
       NodeFS.readFileSync(NodePath.join(tmpExportDir, "metadata.json"), "utf8"),
@@ -122,6 +132,10 @@ function main() {
     const androidMeta = metadata?.fileMetadata?.android;
     if (!androidMeta?.bundle) {
       throw new Error("expo export did not produce fileMetadata.android.bundle");
+    }
+    const exportedBundlePath = NodePath.join(tmpExportDir, androidMeta.bundle);
+    if (!NodeFS.existsSync(exportedBundlePath) || NodeFS.statSync(exportedBundlePath).size < 1024) {
+      throw new Error(`Exported Android bundle is missing or truncated: ${exportedBundlePath}`);
     }
 
     const updateId = NodeCrypto.randomUUID();
