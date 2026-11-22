@@ -1,9 +1,11 @@
 import { NATIVE_WORKSPACE_COLUMNS_SUPPORTED } from "../native/NativeWorkspaceColumns";
 import Constants from "expo-constants";
+import { Image } from "expo-image";
 import { useGT } from "gt-react-native";
 import { useState } from "react";
 import { Platform, View } from "react-native";
 
+import { APP_DISPLAY_NAME, IS_XINGYE_BRAND, T3_CODE_BRAND_MARK_SOURCE } from "./brandAssets";
 import { AppText as Text } from "./ui/AppText";
 import { T3Wordmark } from "./T3Wordmark";
 import { IPAD_HOME_TITLE_OFFSET } from "../lib/layoutMetrics";
@@ -36,7 +38,38 @@ export function CompactBrandTitle(
   const showStage =
     !props.fit || availableWidth === null || fullWidth === null || fullWidth <= availableWidth;
 
-  const title = (
+  const title = IS_XINGYE_BRAND ? (
+    <View
+      aria-level={1}
+      accessibilityLabel={props.accessibilityLabel ?? APP_DISPLAY_NAME}
+      accessible
+      role="heading"
+      className="flex-row items-center gap-2"
+      style={[
+        { marginLeft: titleOffset },
+        Platform.OS === "android" && { gap: 7 * scale },
+        props.fit && { flexShrink: 0 },
+      ]}
+    >
+      <Image
+        source={T3_CODE_BRAND_MARK_SOURCE}
+        accessibilityIgnoresInvertColors
+        style={{
+          width: Math.round(22 * scale),
+          height: Math.round(22 * scale),
+          borderRadius: Math.round(6 * scale),
+        }}
+      />
+      <Text
+        allowFontScaling={props.allowFontScaling}
+        maxFontSizeMultiplier={BRAND_MAX_FONT_SCALE}
+        className="font-t3-bold text-foreground"
+        style={{ fontSize: 19 * scale, letterSpacing: -0.3 * scale }}
+      >
+        {APP_DISPLAY_NAME}
+      </Text>
+    </View>
+  ) : (
     <View
       onLayout={
         props.fit && showStage ? (event) => setFullWidth(event.nativeEvent.layout.width) : undefined

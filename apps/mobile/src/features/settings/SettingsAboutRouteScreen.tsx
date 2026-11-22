@@ -8,7 +8,13 @@ import { useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { Image } from "expo-image";
 import { AppText as Text } from "../../components/ui/AppText";
+import {
+  APP_DISPLAY_NAME,
+  IS_XINGYE_BRAND,
+  T3_CODE_BRAND_MARK_SOURCE,
+} from "../../components/brandAssets";
 import { SymbolView } from "../../components/ui/AppSymbol";
 import { useDeadlinePassed } from "../../lib/clock";
 import {
@@ -33,6 +39,16 @@ export function SettingsAboutRouteScreen() {
         contentContainerClassName="gap-6 px-5 pt-4"
         contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 18) + 18 }}
       >
+        {IS_XINGYE_BRAND ? (
+          <View className="items-center gap-2.5 pt-2">
+            <Image
+              source={T3_CODE_BRAND_MARK_SOURCE}
+              accessibilityIgnoresInvertColors
+              style={{ width: 64, height: 64, borderRadius: 16 }}
+            />
+            <Text className="text-xl font-t3-bold text-foreground">{APP_DISPLAY_NAME}</Text>
+          </View>
+        ) : null}
         <AppSettingsSection />
       </ScrollView>
     </SettingsScreen>

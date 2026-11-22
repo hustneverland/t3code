@@ -2,6 +2,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useGT } from "gt-react-native";
 import { useEffect } from "react";
 import { BackHandler, Keyboard } from "react-native";
+import { APP_DISPLAY_NAME } from "../../../components/brandAssets";
 import { AppBar } from "../../../components/ui/AppBar";
 import { appBarMenuItemsFromActions } from "../../../components/ui/menuActionItems";
 import { useHardwareKeyboardCommand } from "../../keyboard/hardwareKeyboardCommands";
@@ -59,7 +60,7 @@ export function ListSearchToolbar(props: {
   }, [searching, closeSearch, navigation, isTabActive, section]);
   return (
     <AppBar
-      title="T3 Code"
+      title={APP_DISPLAY_NAME}
       titleContent={
         <WorkspaceConnectionTitle
           grow
