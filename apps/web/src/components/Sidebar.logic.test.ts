@@ -23,6 +23,7 @@ import {
   shouldRecedeSidebarThread,
   sortInboxThreadsByReturn,
   resolveSidebarDropTarget,
+  sidebarMarkerId,
   planSidebarThreadDrop,
   resolveSidebarReorderableThreadKeys,
   sortPinnedThreadsForSidebar,
@@ -1157,6 +1158,26 @@ describe("Working shelf (beta)", () => {
         activeOrder: ["a1", "a2", "p1"],
       });
       expect(resolveSidebarDropVerb("active", "working")).toBeNull();
+    });
+
+    it("keeps pinning and inbox ordering when Working is above the inbox", () => {
+      const workingFirst = [...items.slice(5, 7), ...items.slice(0, 5), ...items.slice(7)];
+      expect(
+        resolveSidebarDropTarget(workingFirst, "a1", sidebarMarkerId("working-header")),
+      ).toBeNull();
+      expect(resolveSidebarDropTarget(workingFirst, "a1", "w1")).toBeNull();
+      expect(
+        resolveSidebarDropTarget(workingFirst, "a1", sidebarMarkerId("pinned-header")),
+      ).toEqual({
+        section: "pinned",
+        pinnedOrder: ["a1", "p1"],
+        activeOrder: ["a2"],
+      });
+      expect(resolveSidebarDropTarget(workingFirst, "p1", "a2")).toEqual({
+        section: "active",
+        pinnedOrder: [],
+        activeOrder: ["a1", "a2", "p1"],
+      });
     });
 
     it.each([

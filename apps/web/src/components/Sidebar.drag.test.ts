@@ -530,6 +530,28 @@ describe("sidebar drag projection", () => {
     expect(byTime.get("w")).toEqual(stationary);
   });
 
+  it("keeps Working at the top while previewing an inbox drop", () => {
+    const items = [
+      marker("working-header"),
+      thread("w", "working"),
+      pinnedHeader,
+      thread("p", "pinned"),
+      divider,
+      thread("a1", "active"),
+      thread("a2", "active"),
+      settledHeader,
+      marker("settled-placeholder"),
+    ];
+    const result = preview(
+      { items, settledOrder: [], settledExpanded: false, activeOrder: ["a1", "a2", "p"] },
+      "p",
+      "a1",
+    );
+    expect(result.get("a2")?.y).toBe(-83);
+    expect(result.get(sidebarMarkerId("working-header"))).toEqual(stationary);
+    expect(result.get("w")).toEqual(stationary);
+  });
+
   it("updates the projection when the target or measured geometry changes", () => {
     const strategy = createSidebarSortingStrategy({
       items: pinned,
