@@ -6,6 +6,7 @@ import { ScopedTheme, ScopedVariables } from "uniwind";
 
 import { mixThemePreviewBase, THEME_PREVIEW_RENDER_SPECS } from "@t3tools/shared/themePreview";
 
+import { BRAND_DEFAULT_THEME_ID } from "../../../../components/brandAssets";
 import { SymbolView } from "../../../../components/ui/AppSymbol";
 import { AppText as Text } from "../../../../components/ui/AppText";
 import {
@@ -346,20 +347,26 @@ export function ThemeAppearanceSection() {
       <View className="gap-3">
         <SectionLabel>{gt("Themes")}</SectionLabel>
         <View className="flex-row flex-wrap gap-3">
-          {MOBILE_THEME_OPTIONS.filter(
-            (theme) => theme.id !== "material-you" || systemColorsAvailable,
-          ).map((theme) => (
-            <ThemeCard
-              disabled={!isReady}
-              key={theme.id}
-              label={themeName(theme, m)}
-              darkSelected={theme.id === themeIds.dark}
-              lightSelected={theme.id === themeIds.light}
-              onSelect={(appearance) => setThemeIdForAppearance(appearance, theme.id)}
-              onSelectBoth={() => setThemeIdForBothAppearances(theme.id)}
-              themeId={theme.id}
-            />
-          ))}
+          {[...MOBILE_THEME_OPTIONS]
+            .filter((theme) => theme.id !== "material-you" || systemColorsAvailable)
+            // Hermes has no Array.prototype.toSorted; sort the copy in place.
+            .sort(
+              (first, second) =>
+                Number(second.id === BRAND_DEFAULT_THEME_ID) -
+                Number(first.id === BRAND_DEFAULT_THEME_ID),
+            )
+            .map((theme) => (
+              <ThemeCard
+                disabled={!isReady}
+                key={theme.id}
+                label={themeName(theme, m)}
+                darkSelected={theme.id === themeIds.dark}
+                lightSelected={theme.id === themeIds.light}
+                onSelect={(appearance) => setThemeIdForAppearance(appearance, theme.id)}
+                onSelectBoth={() => setThemeIdForBothAppearances(theme.id)}
+                themeId={theme.id}
+              />
+            ))}
         </View>
       </View>
     </View>

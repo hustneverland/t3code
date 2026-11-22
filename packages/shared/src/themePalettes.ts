@@ -1,4 +1,6 @@
-export const BUILT_IN_THEME_IDS = ["t3-chat", "grove", "ocean", "ember", "iris"] as const;
+import { XINGYE_THEME } from "./themePalettes.xingye.ts";
+
+export const BUILT_IN_THEME_IDS = ["t3-chat", "grove", "ocean", "ember", "iris", "xingye"] as const;
 
 export const MOBILE_DEFAULT_THEME_ID = "t3-code";
 
@@ -916,6 +918,7 @@ export const BUILT_IN_THEMES: ReadonlyArray<ThemeDefinition> = [
   OCEAN_THEME,
   EMBER_THEME,
   IRIS_THEME,
+  XINGYE_THEME,
 ];
 
 export function getThemeColorsForAppearance(

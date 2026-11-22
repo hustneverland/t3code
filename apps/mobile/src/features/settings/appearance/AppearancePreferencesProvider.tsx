@@ -17,6 +17,7 @@ import {
   resolveAppearancePreferences,
   type ResolvedAppearance,
 } from "../../../lib/appearancePreferences";
+import { BRAND_DEFAULT_THEME_ID } from "../../../components/brandAssets";
 import { appAtomRegistry } from "../../../state/atom-registry";
 import { mobilePreferencesAtom, saveMobilePreferences } from "../../../state/preferences";
 import { useAtomCommand } from "../../../state/use-atom-command";
@@ -204,7 +205,7 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
   );
   const themeMode = normalizeMobileThemeMode(storedPreferences?.themeMode);
   const themeAppearance = themeMode === "system" ? systemColorScheme : themeMode;
-  const resolvedThemeIds = resolveMobileThemeIds(storedPreferences ?? {});
+  const resolvedThemeIds = resolveMobileThemeIds(storedPreferences ?? {}, BRAND_DEFAULT_THEME_ID);
   const themeIds = useMemo<MobileThemeIds>(
     () => ({ light: resolvedThemeIds.light, dark: resolvedThemeIds.dark }),
     [resolvedThemeIds.dark, resolvedThemeIds.light],
@@ -239,6 +240,7 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
     // the first one's optimistic write.
     const selected = resolveMobileThemeIds(
       storedPreferencesOf(appAtomRegistry.get(mobilePreferencesAtom)) ?? {},
+      BRAND_DEFAULT_THEME_ID,
     );
     updateThemePreferences(
       createMobileThemeSelectionPatch(selected, themeAppearance, appearance, value),
