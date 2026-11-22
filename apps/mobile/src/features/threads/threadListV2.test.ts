@@ -1751,11 +1751,13 @@ describe("Working section beta", () => {
       "finished-early",
     ]);
     expect(layout.workingCount).toBe(1);
-    expect(layout.workingShelfHeaderIndex).toBe(4);
+    expect(layout.workingVisibleCount).toBe(0);
+    expect(layout.workingShelfHeaderIndex).toBe(0);
 
     const off = build({ workingShelfEnabled: false });
     expect(ids(off)).toContain("working");
     expect(off.workingCount).toBe(0);
+    expect(off.workingVisibleCount).toBe(0);
   });
 
   it("keeps an inactive row in Working during the shared grace and returns it on expiry", () => {
@@ -1794,7 +1796,7 @@ describe("Working section beta", () => {
     expect(ids(layout).slice(1)).toEqual(["finished-early", "finished-late", "asks-approval"]);
   });
 
-  it("places the shelf after queued tasks and before snoozed and settled threads", () => {
+  it("places the shelf at the top after queued tasks and before active, snoozed, and settled threads", () => {
     const layout = buildThreadListV2Items({
       threads: [
         makeThread({ id: ThreadId.make("active"), title: "active" }),
@@ -1824,6 +1826,7 @@ describe("Working section beta", () => {
       items: layout.items,
       pendingTasks: [makePendingTask("queued")],
       workingCount: layout.workingCount,
+      workingVisibleCount: layout.workingVisibleCount,
       workingShelfExpanded: true,
       workingShelfHeaderIndex: layout.workingShelfHeaderIndex,
       snoozedCount: layout.snoozedCount,
@@ -1842,14 +1845,37 @@ describe("Working section beta", () => {
       ),
     ).toEqual([
       "queued",
-      "active",
       "v2-working-shelf",
       "working",
+      "active",
       "v2-snoozed-shelf",
       "snoozed",
       "v2-settled-shelf",
       "settled",
     ]);
+
+    const collapsed = buildThreadListV2Items({
+      threads: [
+        makeThread({ id: ThreadId.make("active"), title: "active" }),
+        makeThread({ id: ThreadId.make("working"), title: "working", runtime: running }),
+      ],
+      environmentId: null,
+      searchQuery: "",
+      now: NOW,
+      workingShelfEnabled: true,
+      workingShelfExpanded: false,
+    });
+    const collapsedItems = buildThreadListV2ListItems({
+      items: collapsed.items,
+      pendingTasks: [],
+      workingCount: collapsed.workingCount,
+      workingVisibleCount: collapsed.workingVisibleCount,
+      workingShelfExpanded: false,
+      workingShelfHeaderIndex: collapsed.workingShelfHeaderIndex,
+    });
+    expect(
+      collapsedItems.map((item) => (item.type === "v2-thread" ? item.item.thread.id : item.type)),
+    ).toEqual(["v2-working-shelf", "active"]);
   });
 });
 

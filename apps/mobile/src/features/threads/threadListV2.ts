@@ -423,6 +423,7 @@ export interface ThreadListV2Layout {
   /** The settled rows the shelf may list, before its visible limit. */
   readonly listedSettledThreads: ReadonlyArray<EnvironmentThreadShell>;
   readonly workingCount: number;
+  readonly workingVisibleCount: number;
   readonly workingShelfHeaderIndex: number | null;
   readonly snoozedCount: number;
   readonly snoozedShelfHeaderIndex: number | null;
@@ -582,6 +583,7 @@ export function buildThreadListV2ListItems(input: {
   readonly items: ReadonlyArray<ThreadListV2Item>;
   readonly pendingTasks: ReadonlyArray<PendingNewTask>;
   readonly workingCount?: number;
+  readonly workingVisibleCount?: number;
   readonly workingShelfExpanded?: boolean;
   readonly workingShelfHeaderIndex?: number | null;
   readonly snoozedCount?: number;
@@ -638,17 +640,25 @@ export function buildThreadListV2ListItems(input: {
     showTrailingDivider: false,
   }));
   const workingCount = input.workingCount ?? 0;
+  const workingVisibleCount = input.workingVisibleCount ?? 0;
   const workingShelfHeaderIndex = input.workingShelfHeaderIndex ?? null;
   const snoozedCount = input.snoozedCount ?? 0;
   const snoozedShelfHeaderIndex = input.snoozedShelfHeaderIndex ?? null;
   const settledCount = input.settledCount ?? 0;
   const settledShelfHeaderIndex = input.settledShelfHeaderIndex ?? null;
   const snoozedEnd = settledShelfHeaderIndex ?? threadItems.length;
-  const workingEnd = snoozedShelfHeaderIndex ?? snoozedEnd;
-  const activeEnd = workingShelfHeaderIndex ?? workingEnd;
-  const result: ThreadListV2ListItem[] = [...pendingItems, ...threadItems.slice(0, activeEnd)];
+  const activeEnd = snoozedShelfHeaderIndex ?? snoozedEnd;
+  const workingStart = workingShelfHeaderIndex ?? 0;
+  const workingEnd =
+    workingShelfHeaderIndex !== null && workingCount > 0
+      ? Math.min(activeEnd, workingStart + workingVisibleCount)
+      : 0;
+  const result: ThreadListV2ListItem[] = [...pendingItems];
   const shelfDisabled = input.shelfPreferencesLoading === true;
   if (workingShelfHeaderIndex !== null && workingCount > 0) {
+    if (workingStart > 0) {
+      result.push(...threadItems.slice(0, workingStart));
+    }
     result.push({
       type: "v2-working-shelf",
       key: "v2-working-shelf",
@@ -656,7 +666,10 @@ export function buildThreadListV2ListItems(input: {
       expanded: input.workingShelfExpanded === true,
       disabled: shelfDisabled,
     });
-    result.push(...threadItems.slice(workingShelfHeaderIndex, workingEnd));
+    result.push(...threadItems.slice(workingStart, workingEnd));
+    result.push(...threadItems.slice(workingEnd, activeEnd));
+  } else {
+    result.push(...threadItems.slice(0, activeEnd));
   }
   if (snoozedShelfHeaderIndex !== null && snoozedCount > 0) {
     result.push({
@@ -851,6 +864,7 @@ export function buildThreadListV2Items(input: {
       hiddenSettledCount: 0,
       listedSettledThreads: [],
       workingCount: 0,
+      workingVisibleCount: 0,
       workingShelfHeaderIndex: null,
       snoozedCount: 0,
       snoozedShelfHeaderIndex: null,
@@ -908,6 +922,17 @@ export function buildThreadListV2Items(input: {
         );
 
   const items: ThreadListV2Item[] = [];
+  const workingShelfHeaderIndex = orderedWorking.length > 0 ? items.length : null;
+  for (const thread of visibleWorking) {
+    items.push({
+      thread,
+      variant: "card",
+      snoozed: false,
+      pinned: false,
+      wokeAt: resolveThreadListV2WokeAt(thread, { now }),
+      isLast: false,
+    });
+  }
   for (const thread of applyPendingThreadOrder(
     sortPinnedThreadsByOrderKey(pinned),
     "pinned",
@@ -923,17 +948,6 @@ export function buildThreadListV2Items(input: {
     });
   }
   for (const thread of orderedActive) {
-    items.push({
-      thread,
-      variant: "card",
-      snoozed: false,
-      pinned: false,
-      wokeAt: resolveThreadListV2WokeAt(thread, { now }),
-      isLast: false,
-    });
-  }
-  const workingShelfHeaderIndex = orderedWorking.length > 0 ? items.length : null;
-  for (const thread of visibleWorking) {
     items.push({
       thread,
       variant: "card",
@@ -974,6 +988,7 @@ export function buildThreadListV2Items(input: {
     hiddenSettledCount: Math.max(0, settledTotal - pagedSettled.length),
     listedSettledThreads: listedSettled,
     workingCount: orderedWorking.length,
+    workingVisibleCount: visibleWorking.length,
     workingShelfHeaderIndex,
     snoozedCount: orderedSnoozed.length,
     snoozedShelfHeaderIndex,
