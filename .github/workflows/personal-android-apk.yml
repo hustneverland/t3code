@@ -5,17 +5,12 @@ on:
     branches:
       - android-personal
     paths:
-      - apps/mobile/**
-      - packages/client-runtime/**
-      - packages/contracts/**
-      - packages/shared/**
-      - assets/**
-      - patches/**
-      - package.json
-      - pnpm-lock.yaml
-      - pnpm-workspace.yaml
-      - .env.example
-      - .github/workflows/personal-android-apk.yml
+      - apps/mobile/app.config.ts
+      - apps/mobile/package.json
+      - apps/mobile/modules/**
+      - apps/mobile/plugins/**
+      - apps/mobile/android/**
+      - apps/mobile/assets/**
   workflow_dispatch:
     inputs:
       abi:
