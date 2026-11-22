@@ -1,0 +1,161 @@
+name: Personal Windows Desktop
+
+on:
+  push:
+    branches:
+      - android-personal
+    paths:
+      - apps/web/**
+      - apps/server/**
+      - apps/desktop/**
+      - packages/**
+      - native/resource-monitor/**
+      - assets/**
+      - patches/**
+      - scripts/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - .env.example
+      - .github/workflows/personal-windows-desktop.yml
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Build version (e.g. 0.1.11)
+        required: false
+        default: "0.1.11"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: personal-windows-desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-win-x64:
+    name: Build Windows x64 Installer (${{ inputs.version || '0.1.11' }})
+    if: github.repository == 'hustneverland/t3code'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      BUILD_VERSION: ${{ inputs.version || '0.1.11' }}
+      RUST_TARGET: x86_64-pc-windows-msvc
+      T3CODE_TELEMETRY_CHANNEL: dev
+      NODE_OPTIONS: --max-old-space-size=6144
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          sparse-checkout: |
+            /*
+            !/.repos/
+          sparse-checkout-cone-mode: false
+
+      - name: Setup dependencies
+        uses: ./.github/actions/setup-ci-deps
+        with:
+          install-args: --filter=t3... --filter=@t3tools/web... --filter=@t3tools/desktop... --filter=@t3tools/scripts...
+
+      - name: Enable T3 Connect public config
+        run: cp .env.example .env
+
+      - name: Align package versions
+        run: node scripts/update-release-package-versions.ts "${BUILD_VERSION}"
+
+      - name: Build desktop JS bundle (web + server + electron)
+        run: vp run build:desktop:bundle
+
+      - name: Cache resource monitor
+        id: resource_monitor_cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: native/resource-monitor/target/x86_64-pc-windows-msvc/release/t3-resource-monitor.exe
+          key: personal-resource-monitor-win-x64-${{ hashFiles('native/resource-monitor/Cargo.lock', 'native/resource-monitor/Cargo.toml', 'native/resource-monitor/src/**') }}
+
+      - name: Setup Rust
+        if: steps.resource_monitor_cache.outputs.cache-hit != 'true'
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: stable
+          targets: x86_64-pc-windows-msvc
+
+      - name: Install cargo-xwin
+        if: steps.resource_monitor_cache.outputs.cache-hit != 'true'
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b669b39 # v2.90.3
+        with:
+          tool: cargo-xwin@0.23.1
+
+      - name: Build Windows resource monitor
+        if: steps.resource_monitor_cache.outputs.cache-hit != 'true'
+        run: cargo xwin build --locked --release --manifest-path native/resource-monitor/Cargo.toml --target "${RUST_TARGET}"
+
+      - name: Resolve staged install cache
+        id: stage_pnpm
+        run: |
+          echo "dir=${RUNNER_TEMP}/desktop-stage-pnpm" >> "${GITHUB_OUTPUT}"
+          echo "prefix=personal-desktop-stage-pnpm-win-x64-$(date -u +%G-%V)-" >> "${GITHUB_OUTPUT}"
+
+      - name: Restore staged install cache
+        id: stage_pnpm_cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.stage_pnpm.outputs.dir }}
+          key: ${{ steps.stage_pnpm.outputs.prefix }}${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: ${{ steps.stage_pnpm.outputs.prefix }}
+
+      - name: Mark staged install cache
+        run: mkdir -p "${{ steps.stage_pnpm.outputs.dir }}" && touch "${RUNNER_TEMP}/desktop-stage-pnpm.marker"
+
+      - name: Package Windows x64 NSIS installer
+        env:
+          pnpm_config_cache_dir: ${{ steps.stage_pnpm.outputs.dir }}/cache
+          pnpm_config_store_dir: ${{ steps.stage_pnpm.outputs.dir }}/store
+          pnpm_config_prefer_offline: "true"
+          T3CODE_DESKTOP_REUSE_RESOURCE_MONITOR: "true"
+        run: |
+          vp run dist:desktop:artifact \
+            --platform win \
+            --target nsis \
+            --arch x64 \
+            --build-version "${BUILD_VERSION}" \
+            --skip-build \
+            --verbose
+
+      - name: Check staged install cache changes
+        id: stage_pnpm_changed
+        run: |
+          dir="${{ steps.stage_pnpm.outputs.dir }}"
+          new=$(find "$dir/cache/v12" "$dir/store/v11/files" -type f -newer "${RUNNER_TEMP}/desktop-stage-pnpm.marker" 2>/dev/null | wc -l | tr -d ' ')
+          echo "Staged installs added ${new} cached files."
+          echo "changed=$([[ "${new}" -gt 0 ]] && echo true || echo false)" >> "${GITHUB_OUTPUT}"
+
+      - name: Save staged install cache
+        if: steps.stage_pnpm_changed.outputs.changed == 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.stage_pnpm.outputs.dir }}
+          key: ${{ steps.stage_pnpm_cache.outputs.cache-primary-key }}
+
+      - name: Summarize Windows installer
+        run: |
+          set -euo pipefail
+          EXE="$(ls release/T3-Code-*-x64.exe | head -n 1)"
+          SHA256="$(sha256sum "${EXE}" | awk '{print $1}')"
+          SIZE_MB="$(du -m "${EXE}" | awk '{print $1}')"
+          {
+            echo "### T3 Code Personal Windows x64 Installer"
+            echo "- File: \`$(basename "${EXE}")\` (${SIZE_MB} MB)"
+            echo "- Version: \`${BUILD_VERSION}\`"
+            echo "- SHA-256: \`${SHA256}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: T3-Code-Personal-win-x64
+          path: release/T3-Code-*-x64.exe
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
