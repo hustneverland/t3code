@@ -123,12 +123,19 @@ const customIconPreset = (
 )
   ?.trim()
   .toLowerCase();
+const customAndroidVersionCodeRaw = (
+  process.env.T3CODE_ANDROID_VERSION_CODE ?? repoEnv.T3CODE_ANDROID_VERSION_CODE
+)?.trim();
+const customAndroidVersionCode =
+  customAndroidVersionCodeRaw && /^\d+$/.test(customAndroidVersionCodeRaw)
+    ? Number.parseInt(customAndroidVersionCodeRaw, 10)
+    : undefined;
 const variantAssets =
   customIconPreset === "xingye"
     ? {
         ...variant.assets,
         appIcon: "./assets/personal-icon-xingye.png",
-        splashIcon: "./assets/personal-icon-xingye.png",
+        splashIcon: "./assets/personal-splash-xingye.png",
         androidAdaptiveForeground: "./assets/personal-adaptive-xingye.png",
         androidAdaptiveBackgroundColor: "#0B132B",
         androidAdaptiveBackgroundImage: undefined,
@@ -136,6 +143,8 @@ const variantAssets =
         androidNotificationColor: "#38BDF8",
       }
     : variant.assets;
+const splashBackgroundColor = customIconPreset === "xingye" ? "#0B132B" : "#ffffff";
+const splashDarkBackgroundColor = customIconPreset === "xingye" ? "#0B132B" : "#0a0a0a";
 // Copied thread links open the app. app.t3.codes/.well-known lists every variant's identifiers.
 const HOSTED_APP_HOST = "app.t3.codes";
 const iosBundleIdentifier = isIosPersonalTeamBuild
@@ -331,6 +340,7 @@ const config: ExpoConfig = {
   android: {
     icon: variantAssets.appIcon,
     package: androidPackage,
+    ...(customAndroidVersionCode ? { versionCode: customAndroidVersionCode } : {}),
     ...(repoEnv.T3CODE_ANDROID_GOOGLE_SERVICES_FILE
       ? { googleServicesFile: repoEnv.T3CODE_ANDROID_GOOGLE_SERVICES_FILE }
       : {}),
@@ -445,17 +455,21 @@ const config: ExpoConfig = {
       {
         image: variantAssets.splashIcon,
         resizeMode: "contain",
-        backgroundColor: "#ffffff",
+        backgroundColor: splashBackgroundColor,
         imageWidth: 220,
         dark: {
           image: variantAssets.splashIcon,
-          backgroundColor: "#0a0a0a",
+          backgroundColor: splashDarkBackgroundColor,
         },
         android: {
           // Android 12+ masks the central two thirds of the 288dp canvas; adaptive layers avoid clipped corners.
           image: variantAssets.androidSplashIcon,
           imageWidth: 288,
-          dark: { image: variantAssets.androidSplashIcon },
+          backgroundColor: splashBackgroundColor,
+          dark: {
+            image: variantAssets.androidSplashIcon,
+            backgroundColor: splashDarkBackgroundColor,
+          },
         },
       },
     ],
