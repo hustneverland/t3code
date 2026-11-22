@@ -39,6 +39,22 @@ const PACE_LABEL = {
   under: msg("Under pace"),
 } as const;
 
+const LIMIT_BAR_COLORS: Record<string, string> = {
+  codex: "#10A37F",
+  claude: "#D97757",
+  grok: "#F59E0B",
+  antigravity: "#4F6EF7",
+  cursor: "#06B6D4",
+  opencode: "#0EA5E9",
+  pi: "#14B8A6",
+  muse: "#2563EB",
+};
+
+function resolveLimitBarColor(driver: string, fallback: string): string {
+  const kind = usageProviderKind(driver);
+  return (kind && LIMIT_BAR_COLORS[kind]) || fallback;
+}
+
 function accountName(account: LimitAccount, resolve: MessageResolver) {
   if (account.displayName) return account.displayName;
   if (!account.email) return providerClients.get(account.driver)?.label ?? account.driver;
@@ -126,10 +142,12 @@ function AccountSegment({
   remaining,
   color,
   refillPercent,
+  fillOpacity = 0.35,
 }: {
   readonly remaining: number;
   readonly color: string;
   readonly refillPercent: number;
+  readonly fillOpacity?: number;
 }) {
   const patternId = useId().replace(/:/g, "");
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -149,7 +167,7 @@ function AccountSegment({
         <Svg width={size.width} height={size.height} accessible={false}>
           <Defs>
             <Pattern id={patternId} width={6} height={6} patternUnits="userSpaceOnUse">
-              <Path d="M-1 1L1 -1M0 6L6 0M5 7L7 5" stroke={color} strokeWidth={1} opacity={0.22} />
+              <Path d="M-1 1L1 -1M0 6L6 0M5 7L7 5" stroke={color} strokeWidth={1} opacity={0.26} />
             </Pattern>
           </Defs>
           {refillPercent > 0 ? (
@@ -160,7 +178,7 @@ function AccountSegment({
               fill={`url(#${patternId})`}
             />
           ) : null}
-          <Rect width={`${remaining}%`} height="100%" fill={color} opacity={0.35} />
+          <Rect width={`${remaining}%`} height="100%" fill={color} opacity={fillOpacity} />
         </Svg>
       ) : null}
     </View>
@@ -464,6 +482,116 @@ function PoolWindowCard({
   );
 }
 
+function SingleAccountWindowRow({
+  pool,
+  color,
+  now,
+  environmentIds,
+  label,
+  description,
+  divided,
+}: {
+  readonly pool: LimitPoolWindow;
+  readonly color: string;
+  readonly now: number;
+  readonly environmentIds: readonly string[] | null;
+  readonly label?: string | null;
+  readonly description?: string;
+  readonly divided: boolean;
+}) {
+  const navigation = useNavigation();
+  const gt = useGT();
+  const m = useMessages();
+  const member = pool.columns.find((candidate) => candidate.window !== null);
+  if (!member?.window) return null;
+  const { account, window } = member;
+  const remaining = remainingPercent(window);
+  const timeLeft = paceRemainingPercent(window, now);
+  const credits = account.limits.resetCredits?.availableCount ?? 0;
+  const nextRefill = pool.resets.find((reset) => reset.restoresPercent > 0);
+  const barColor = normalizeProviderAccentColor(account.accentColor) ?? color;
+  const percentText = `${remaining}%`;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={gt("{account}, {remaining}% left", {
+        account: label ?? pool.label,
+        remaining,
+      })}
+      accessibilityHint={gt("Show account details")}
+      onPress={() =>
+        navigation.navigate("SettingsUsageAccount", {
+          accountKey: account.key,
+          windowId: pool.id,
+          windowKind: pool.kind,
+          environmentIds,
+          now,
+        })
+      }
+      className={
+        divided
+          ? "gap-2 border-t border-border/40 px-4 py-3.5 active:opacity-60"
+          : "gap-2 px-4 py-3.5 active:opacity-60"
+      }
+    >
+      <View className="flex-row items-baseline justify-between gap-3">
+        <View className="min-w-0 flex-1 flex-row items-center gap-2">
+          {label !== null ? (
+            <Text
+              numberOfLines={1}
+              className="min-w-0 shrink text-sm font-t3-medium text-foreground"
+            >
+              {label ?? pool.label}
+            </Text>
+          ) : null}
+          {pool.pace ? (
+            <Text className="shrink-0 text-xs text-foreground-tertiary">
+              {m(PACE_LABEL[pool.pace])}
+            </Text>
+          ) : null}
+        </View>
+        <Text className="text-lg font-t3-bold tabular-nums text-foreground">{percentText}</Text>
+      </View>
+
+      <View className="relative h-2.5 w-full">
+        <PaceGap timeLeft={timeLeft}>
+          <View className="absolute inset-0 rounded-full bg-subtle" />
+          <View className="absolute inset-0 overflow-hidden rounded-full">
+            <AccountSegment
+              remaining={remaining}
+              color={barColor}
+              refillPercent={window.resetsAt ? member.refillPercent : 0}
+              fillOpacity={0.92}
+            />
+          </View>
+        </PaceGap>
+      </View>
+
+      {description || nextRefill || credits > 0 ? (
+        <View className="flex-row items-center justify-between gap-2">
+          <View className="min-w-0 flex-1 gap-0.5">
+            {nextRefill ? (
+              <Text className="text-xs tabular-nums text-foreground-muted">
+                {refillLabel(nextRefill.member.window, now, nextRefill.restoresPercent, m)}
+              </Text>
+            ) : null}
+            {description ? (
+              <Text className="text-xs text-foreground-muted">{description}</Text>
+            ) : null}
+          </View>
+          {credits > 0 ? (
+            <View className="shrink-0 flex-row items-center gap-1 rounded-full bg-subtle px-2 py-0.5">
+              <SymbolView name="ticket" size={12} tintColorClassName="accent-icon" />
+              <Text className="text-xs font-t3-medium tabular-nums text-foreground">{credits}</Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}
+
 export function UsageLimitsSection({
   now,
   failedLabels,
@@ -487,7 +615,7 @@ export function UsageLimitsSection({
   const colors = useProviderColors();
   const gt = useGT();
   return (
-    <View className="gap-6">
+    <View className="gap-5">
       {pools.length === 0 &&
       notices.length === 0 &&
       failedLabels.length === 0 &&
@@ -500,35 +628,70 @@ export function UsageLimitsSection({
       ) : null}
       {pools.map((pool) => {
         const windows = displayLimitWindows(pool);
+        const barColor = resolveLimitBarColor(
+          pool.driver,
+          colors[usageProviderKind(pool.driver) ?? "codex"],
+        );
+        const singleAccount =
+          !wide &&
+          windows.length > 0 &&
+          windows.every(
+            (window) => window.columns.filter((col) => col.window !== null).length <= 1,
+          );
         return (
           <Fragment key={pool.driver}>
-            <View className="gap-3">
+            <View className="gap-2.5">
               <View className="flex-row items-center gap-2 px-1">
                 <ProviderIcon provider={pool.driver} size={18} />
                 <Text className="text-base font-t3-medium text-foreground">
                   {providerClients.get(pool.driver)?.label ?? pool.driver}
                 </Text>
               </View>
-              {windows.map((window) => {
-                const details =
-                  pool.driver === "cursor"
-                    ? cursorUsageWindowDetails(window.id, pool, m)
-                    : undefined;
-                return (
-                  <PoolWindowCard
-                    key={`${window.kind}:${window.id}`}
-                    pool={window}
-                    color={colors[usageProviderKind(pool.driver) ?? "codex"]}
-                    now={now}
-                    environmentIds={
-                      selectedEnvironmentIds === null ? null : [...selectedEnvironmentIds]
-                    }
-                    label={details?.label}
-                    description={details?.description}
-                    wide={wide}
-                  />
-                );
-              })}
+              {singleAccount ? (
+                <View className="overflow-hidden rounded-[20px] border-continuous bg-grouped-card">
+                  {windows.map((window, index) => {
+                    const details =
+                      pool.driver === "cursor"
+                        ? cursorUsageWindowDetails(window.id, pool, m)
+                        : undefined;
+                    return (
+                      <SingleAccountWindowRow
+                        key={`${window.kind}:${window.id}`}
+                        pool={window}
+                        color={barColor}
+                        now={now}
+                        environmentIds={
+                          selectedEnvironmentIds === null ? null : [...selectedEnvironmentIds]
+                        }
+                        label={details?.label}
+                        description={details?.description}
+                        divided={index > 0}
+                      />
+                    );
+                  })}
+                </View>
+              ) : (
+                windows.map((window) => {
+                  const details =
+                    pool.driver === "cursor"
+                      ? cursorUsageWindowDetails(window.id, pool, m)
+                      : undefined;
+                  return (
+                    <PoolWindowCard
+                      key={`${window.kind}:${window.id}`}
+                      pool={window}
+                      color={barColor}
+                      now={now}
+                      environmentIds={
+                        selectedEnvironmentIds === null ? null : [...selectedEnvironmentIds]
+                      }
+                      label={details?.label}
+                      description={details?.description}
+                      wide={wide}
+                    />
+                  );
+                })
+              )}
             </View>
           </Fragment>
         );
