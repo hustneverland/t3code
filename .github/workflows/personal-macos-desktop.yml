@@ -46,10 +46,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Apple silicon only. An x64 row (rust_target x86_64-apple-darwin) also builds, but its
+          # compile-cache step runs under Rosetta and can exceed its two-minute limit on shared runners.
           - arch: arm64
             rust_target: aarch64-apple-darwin
-          - arch: x64
-            rust_target: x86_64-apple-darwin
     env:
       BUILD_VERSION: ${{ inputs.version || '0.1.11' }}
       T3CODE_TELEMETRY_CHANNEL: dev
