@@ -140,6 +140,8 @@ const variantAssets =
         androidAdaptiveBackgroundColor: "#0B132B",
         androidAdaptiveBackgroundImage: undefined,
         androidSplashIcon: "./assets/personal-splash-xingye.png",
+        androidMonochromeIcon: "./assets/personal-mark-xingye.png",
+        androidNotificationIcon: "./assets/personal-notification-xingye.png",
         androidNotificationColor: "#38BDF8",
       }
     : variant.assets;
