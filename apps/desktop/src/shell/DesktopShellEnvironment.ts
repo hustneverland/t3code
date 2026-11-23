@@ -128,7 +128,37 @@ const LOGIN_SHELL_ENV_NAMES = [
   "__MISE_DIFF",
   "JAVA_HOME",
   "PNPM_HOME",
+  // Shell profiles spell these either way; curl and most CLIs read the lowercase form first.
+  "http_proxy",
+  "https_proxy",
+  "no_proxy",
+  "all_proxy",
+  "HTTP_PROXY",
+  "HTTPS_PROXY",
+  "NO_PROXY",
+  "ALL_PROXY",
 ] as const;
+const PROXY_ENV_NAMES = ["HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "ALL_PROXY"] as const;
+const isProxyEnvName = (name: string): boolean =>
+  (PROXY_ENV_NAMES as ReadonlyArray<string>).includes(name);
+
+/**
+ * The value of each forwarded variable, or null to remove it. Windows names are case-insensitive,
+ * so a proxy set as `http_proxy` there must be found, or its null would delete the variable.
+ */
+const toShellEnvironmentPatch = (
+  env: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform,
+): ShellEnvironmentPatch =>
+  Object.fromEntries(
+    Object.keys(ShellEnvironmentPatch.fields).map((name) => {
+      if (platform === "win32" && isProxyEnvName(name) && env[name] === undefined) {
+        const key = Object.keys(env).find((candidate) => candidate.toUpperCase() === name);
+        return [name, (key === undefined ? undefined : env[key]) ?? null];
+      }
+      return [name, env[name] ?? null];
+    }),
+  );
 const WINDOWS_PROFILE_ENV_NAMES = ["PATH", "FNM_DIR", "FNM_MULTISHELL_PATH"] as const;
 const LOCALE_ENV_NAMES = ["LANG", "LC_ALL", "LC_CTYPE"] as const;
 const ANDROID_SDK_ENV_NAMES = ["ANDROID_HOME", "ANDROID_SDK_ROOT"] as const;
@@ -560,6 +590,16 @@ const installPosixEnvironment = Effect.fn("desktop.shellEnvironment.installPosix
       }
     }
 
+    // A proxy exported only in the shell profile never reaches an app started from the Dock.
+    // Whatever the app inherited wins, in either spelling.
+    for (const name of PROXY_ENV_NAMES) {
+      const lowercase = name.toLowerCase();
+      const value = shellEnvironment[lowercase] || shellEnvironment[name];
+      if (value && !config.env[name] && !config.env[lowercase]) {
+        config.env[name] = value;
+      }
+    }
+
     // The device host picks the Android SDK from ANDROID_HOME before ANDROID_SDK_ROOT,
     // so a profile-only ANDROID_HOME must not shadow an inherited ANDROID_SDK_ROOT.
     if (ANDROID_SDK_ENV_NAMES.every((name) => Option.isNone(trimNonEmpty(config.env[name])))) {
@@ -722,9 +762,7 @@ export const make = Effect.gen(function* () {
       });
       const { prepared } = discovery;
       stripAppImagePaths(fresh);
-      const patch = Object.fromEntries(
-        Object.keys(ShellEnvironmentPatch.fields).map((name) => [name, fresh[name] ?? null]),
-      );
+      const patch = toShellEnvironmentPatch(fresh, environment.platform);
       if (prepared || Option.isNone(yield* Ref.get(latest))) yield* publish(patch, prepared);
       if (prepared) {
         const cached = Object.fromEntries(
@@ -793,11 +831,7 @@ export const make = Effect.gen(function* () {
           );
         }
         applyShellEnvironment(baseline, cached, environment.platform);
-        yield* publish(
-          Object.fromEntries(
-            Object.keys(ShellEnvironmentPatch.fields).map((name) => [name, baseline[name] ?? null]),
-          ),
-        );
+        yield* publish(toShellEnvironmentPatch(baseline, environment.platform));
       }
       yield* Effect.forkIn(refresh, scope);
       return true;

@@ -327,6 +327,11 @@ export const ShellEnvironmentPatch = Schema.Struct({
   PNPM_HOME: Schema.optionalKey(Schema.NullOr(Schema.String)),
   FNM_DIR: Schema.optionalKey(Schema.NullOr(Schema.String)),
   FNM_MULTISHELL_PATH: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  // A proxy exported in the shell profile; the desktop sends the uppercase spelling only.
+  HTTP_PROXY: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  HTTPS_PROXY: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  NO_PROXY: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  ALL_PROXY: Schema.optionalKey(Schema.NullOr(Schema.String)),
 });
 export type ShellEnvironmentPatch = typeof ShellEnvironmentPatch.Type;
 
