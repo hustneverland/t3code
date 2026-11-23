@@ -35,6 +35,7 @@ import * as Ndjson from "effect/encoding/Ndjson";
 
 import { eventVersion as messageVersion } from "./NativeTelemetryClient.ts";
 import * as ServerConfig from "../config.ts";
+import { followEnvProxy, type EnvProxyOutcome } from "../outboundHttp.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import { subscribeBeforeSnapshotWithoutMutex } from "../utils/subscribeBeforeSnapshot.ts";
 
@@ -222,6 +223,7 @@ class DesktopShellCertificatesUpdateFailed extends Schema.TaggedError<DesktopShe
 export function makeApplyDesktopShellEnvironmentSnapshot(
   environment: NodeJS.ProcessEnv,
   platform: NodeJS.Platform,
+  followProxy: (env: NodeJS.ProcessEnv) => EnvProxyOutcome = followEnvProxy,
 ) {
   let baseCertificates: Array<string> | undefined;
   return Effect.fn("resourceTelemetry.desktopTelemetryReceiver.applyShellEnvironment")(function* (
@@ -240,6 +242,10 @@ export function makeApplyDesktopShellEnvironmentSnapshot(
       });
     }
     applyShellEnvironment(environment, message.environment, platform);
+    // A proxy exported in the login shell reaches a desktop-started server only here.
+    if (followProxy(environment) === "followed") {
+      yield* Effect.logInfo("Outbound requests now follow the proxy from the shell environment.");
+    }
     if (message.environment.NODE_EXTRA_CA_CERTS !== undefined) {
       yield* Effect.gen(function* () {
         const certificates = baseCertificates;

@@ -1,3 +1,5 @@
+// @effect-diagnostics-next-line nodeBuiltinImport:off -- HttpClient cannot switch the process-wide proxy that fetch and http(s) follow.
+import * as NodeHttp from "node:http";
 import * as NodeModule from "node:module";
 import * as NodeNet from "node:net";
 
@@ -66,3 +68,84 @@ export function extendConnectionAttemptTimeout(): void {
     Math.max(NodeNet.getDefaultAutoSelectFamilyAttemptTimeout(), 1_000),
   );
 }
+
+/** What Node's built-in proxy support reads; the names match `http.Agent`'s `proxyEnv`. */
+export interface EnvProxy {
+  readonly HTTP_PROXY?: string;
+  readonly HTTPS_PROXY?: string;
+  readonly NO_PROXY: string;
+}
+
+const LOOPBACK_NO_PROXY = ["localhost", "127.0.0.1", "::1"] as const;
+
+// Node's built-in support speaks to HTTP and HTTPS proxies only; a SOCKS URL stays unused.
+const usableProxyUrl = (value: string | undefined): string | undefined => {
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+  try {
+    const { protocol } = new URL(trimmed);
+    return protocol === "http:" || protocol === "https:" ? trimmed : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+/** The proxy the environment names, lowercase first as curl does, with loopback always direct. */
+export function resolveEnvProxy(
+  env: Readonly<Record<string, string | undefined>>,
+): EnvProxy | undefined {
+  const httpProxy = usableProxyUrl(env.http_proxy) ?? usableProxyUrl(env.HTTP_PROXY);
+  const httpsProxy = usableProxyUrl(env.https_proxy) ?? usableProxyUrl(env.HTTPS_PROXY);
+  if (!httpProxy && !httpsProxy) return undefined;
+  const direct = (env.no_proxy ?? env.NO_PROXY ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+  return {
+    ...(httpProxy ? { HTTP_PROXY: httpProxy } : {}),
+    ...(httpsProxy ? { HTTPS_PROXY: httpsProxy } : {}),
+    NO_PROXY: [...new Set([...direct, ...LOOPBACK_NO_PROXY])].join(","),
+  };
+}
+
+// @types/node does not declare setGlobalProxyFromEnv yet; Node 22 and early 24 lack it.
+type HttpWithGlobalProxy = {
+  setGlobalProxyFromEnv?: (proxyEnv?: EnvProxy) => () => void;
+};
+
+export type EnvProxyOutcome = "unchanged" | "followed" | "cleared" | "unsupported";
+
+/**
+ * Node ignores HTTPS_PROXY unless it starts with NODE_USE_ENV_PROXY, and a desktop app's shell
+ * variables arrive after the server has started. Call this at startup and again whenever the
+ * environment changes; fetch and http(s) requests then follow the proxy it names.
+ */
+export function makeFollowEnvProxy(
+  http: HttpWithGlobalProxy = NodeHttp as HttpWithGlobalProxy,
+): (env: Readonly<Record<string, string | undefined>>) => EnvProxyOutcome {
+  let followed: string | undefined;
+  let restore: (() => void) | undefined;
+  return (env) => {
+    const proxy = resolveEnvProxy(env);
+    const next = proxy ? JSON.stringify(proxy) : "";
+    // Node set the proxy up itself when it started with the flag; leave that configuration alone.
+    if (followed === undefined && env.NODE_USE_ENV_PROXY === "1") {
+      followed = next;
+      return "unchanged";
+    }
+    if (next === (followed ?? "")) {
+      followed = next;
+      return "unchanged";
+    }
+    if (typeof http.setGlobalProxyFromEnv !== "function") return "unsupported";
+    followed = next;
+    // Nothing of ours to undo: Node's own startup configuration cannot be withdrawn from here.
+    if (!proxy && restore === undefined) return "unchanged";
+    restore?.();
+    restore = proxy ? http.setGlobalProxyFromEnv(proxy) : undefined;
+    return proxy ? "followed" : "cleared";
+  };
+}
+
+/** One per process: the global agent and fetch dispatcher it switches are process-wide. */
+export const followEnvProxy = makeFollowEnvProxy();

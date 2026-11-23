@@ -16,6 +16,8 @@ import {
   builtinFetchUsesHttp2,
   ignoreMacosTypeOfServiceEinval,
   installHttp1FetchDispatcher,
+  makeFollowEnvProxy,
+  resolveEnvProxy,
 } from "./outboundHttp.ts";
 
 // Non-secret, self-signed 127.0.0.1 certificate, valid until 2126; ALPN h2 requires TLS.
@@ -163,4 +165,78 @@ if (calls === 0) throw new Error("fetch did not call setTypeOfService");
       expect(child.stdout.trim()).toBe("1.1");
     }).pipe(Effect.provide(NodeServices.layer)),
   );
+});
+
+describe("resolveEnvProxy", () => {
+  it("is undefined when the environment names no proxy", () => {
+    expect(resolveEnvProxy({ NO_PROXY: "example.com" })).toBeUndefined();
+  });
+
+  it("keeps loopback direct and prefers the lowercase names", () => {
+    expect(
+      resolveEnvProxy({
+        HTTPS_PROXY: "http://upper:1",
+        https_proxy: "http://lower:2",
+        NO_PROXY: "internal.example, localhost",
+      }),
+    ).toEqual({
+      HTTPS_PROXY: "http://lower:2",
+      NO_PROXY: "internal.example,localhost,127.0.0.1,::1",
+    });
+  });
+
+  it("ignores proxies Node cannot speak to", () => {
+    expect(resolveEnvProxy({ HTTPS_PROXY: "socks5://127.0.0.1:1080" })).toBeUndefined();
+    expect(resolveEnvProxy({ HTTPS_PROXY: "not a url", HTTP_PROXY: "http://proxy:3" })).toEqual({
+      HTTP_PROXY: "http://proxy:3",
+      NO_PROXY: "localhost,127.0.0.1,::1",
+    });
+  });
+});
+
+describe("makeFollowEnvProxy", () => {
+  const recordingHttp = () => {
+    const calls: Array<string> = [];
+    return {
+      calls,
+      http: {
+        setGlobalProxyFromEnv: (proxy?: { readonly HTTPS_PROXY?: string }) => {
+          calls.push(`set ${proxy?.HTTPS_PROXY}`);
+          return () => void calls.push(`restore ${proxy?.HTTPS_PROXY}`);
+        },
+      },
+    };
+  };
+
+  it("follows a proxy that appears after startup and withdraws it when it goes", () => {
+    const { calls, http } = recordingHttp();
+    const follow = makeFollowEnvProxy(http);
+
+    expect(follow({})).toBe("unchanged");
+    expect(follow({ HTTPS_PROXY: "http://proxy:1" })).toBe("followed");
+    expect(follow({ HTTPS_PROXY: "http://proxy:1" })).toBe("unchanged");
+    expect(follow({ HTTPS_PROXY: "http://proxy:2" })).toBe("followed");
+    expect(follow({})).toBe("cleared");
+    expect(calls).toEqual([
+      "set http://proxy:1",
+      "restore http://proxy:1",
+      "set http://proxy:2",
+      "restore http://proxy:2",
+    ]);
+  });
+
+  it("leaves the configuration Node made for itself at startup", () => {
+    const { calls, http } = recordingHttp();
+    const follow = makeFollowEnvProxy(http);
+    const env = { NODE_USE_ENV_PROXY: "1", HTTPS_PROXY: "http://proxy:1" };
+
+    expect(follow(env)).toBe("unchanged");
+    expect(follow(env)).toBe("unchanged");
+    expect(follow({})).toBe("unchanged");
+    expect(calls).toEqual([]);
+  });
+
+  it("reports a runtime that cannot switch proxies while running", () => {
+    expect(makeFollowEnvProxy({})({ HTTPS_PROXY: "http://proxy:1" })).toBe("unsupported");
+  });
 });
