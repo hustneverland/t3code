@@ -43,6 +43,9 @@ jobs:
       BUILD_VERSION: ${{ inputs.version || '0.1.11' }}
       RUST_TARGET: x86_64-pc-windows-msvc
       T3CODE_TELEMETRY_CHANNEL: dev
+      T3CODE_DESKTOP_APP_NAME: 星野
+      T3CODE_DESKTOP_EXECUTABLE_NAME: Xingye
+      T3CODE_DESKTOP_ICON_PRESET: xingye
       NODE_OPTIONS: --max-old-space-size=6144
     steps:
       - name: Checkout

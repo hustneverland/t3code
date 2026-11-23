@@ -19,7 +19,10 @@ const hostedAppChannel = import.meta.env.VITE_HOSTED_APP_CHANNEL?.trim().toLower
 export const HOSTED_APP_CHANNEL =
   hostedAppChannel === "latest" || hostedAppChannel === "nightly" ? hostedAppChannel : null;
 export const HOSTED_APP_CHANNEL_LABEL = resolveHostedAppChannelLabel(HOSTED_APP_CHANNEL);
-export const APP_BASE_NAME = injectedDesktopAppBranding?.baseName ?? "T3 Code";
+const STOCK_APP_BASE_NAME = "T3 Code";
+export const APP_BASE_NAME = injectedDesktopAppBranding?.baseName ?? STOCK_APP_BASE_NAME;
+/** A personal desktop build runs under its own name and shows that instead of the T3 wordmark. */
+export const PERSONAL_APP_NAME = APP_BASE_NAME === STOCK_APP_BASE_NAME ? null : APP_BASE_NAME;
 export const APP_STAGE_LABEL =
   injectedDesktopAppBranding?.stageLabel ??
   resolveWebAppStageLabel({

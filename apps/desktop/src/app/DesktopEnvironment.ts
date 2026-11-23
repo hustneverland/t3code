@@ -85,7 +85,13 @@ export class DesktopEnvironment extends Context.Service<
   }
 >()("@t3tools/desktop/app/DesktopEnvironment") {}
 
-const APP_BASE_NAME = "T3 Code";
+/** Electron's app name feeds the User-Agent token, so it stays ASCII whatever the build is called. */
+export const APP_PROCESS_BASE_NAME = "T3 Code";
+
+declare const __T3CODE_BUILD_APP_NAME__: string | undefined;
+
+const PERSONAL_APP_NAME =
+  typeof __T3CODE_BUILD_APP_NAME__ === "undefined" ? "" : __T3CODE_BUILD_APP_NAME__.trim();
 
 function resolveDesktopAppStageLabel(input: {
   readonly isDevelopment: boolean;
@@ -101,12 +107,18 @@ function resolveDesktopAppStageLabel(input: {
 export function resolveDesktopAppBranding(input: {
   readonly isDevelopment: boolean;
   readonly appVersion: string;
+  /** A personal build's own name. It is shown as is, without a stage suffix. */
+  readonly personalAppName?: string;
 }): DesktopAppBranding {
   const stageLabel = resolveDesktopAppStageLabel(input);
+  const personalAppName = (input.personalAppName ?? PERSONAL_APP_NAME).trim();
+  if (personalAppName !== "") {
+    return { baseName: personalAppName, stageLabel, displayName: personalAppName };
+  }
   return {
-    baseName: APP_BASE_NAME,
+    baseName: APP_PROCESS_BASE_NAME,
     stageLabel,
-    displayName: `${APP_BASE_NAME} (${stageLabel})`,
+    displayName: `${APP_PROCESS_BASE_NAME} (${stageLabel})`,
   };
 }
 

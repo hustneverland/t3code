@@ -40,6 +40,10 @@ import {
   findInlinedExternalPackages,
   selectCliRuntimeExternalDependencies,
 } from "./lib/cli-external-packages.ts";
+import {
+  type DesktopPersonalBrand,
+  resolveDesktopPersonalBrand,
+} from "./lib/desktop-personal-brand.ts";
 import { loadRepoEnv } from "./lib/public-config.ts";
 import { selectDesktopRuntimeExternalDependencies } from "./lib/desktop-external-packages.ts";
 import { resolveCatalogDependencies } from "./lib/resolve-catalog.ts";
@@ -2730,24 +2734,35 @@ export function isDesktopPreviewVersion(version: string): boolean {
   return /-pr\./.test(version) || /-preview\.\d{8}\.\d+$/.test(version);
 }
 
-export function resolveDesktopWebAssetBrand(version: string): WebAssetBrand {
-  return resolveWebAssetBrandForChannel(resolveDesktopUpdateChannel(version));
+export function resolveDesktopWebAssetBrand(
+  version: string,
+  personalBrand: DesktopPersonalBrand | null = resolveDesktopPersonalBrand(),
+): WebAssetBrand {
+  return (
+    personalBrand?.icons?.webAssetBrand ??
+    resolveWebAssetBrandForChannel(resolveDesktopUpdateChannel(version))
+  );
 }
 
-export function resolveDesktopBuildIconAssets(version: string): DesktopBuildIconAssets {
-  if (resolveDesktopUpdateChannel(version) === "nightly") {
-    return {
-      macIconPng: BRAND_ASSET_PATHS.nightlyMacIconPng,
-      linuxIconPng: BRAND_ASSET_PATHS.nightlyLinuxIconPng,
-      windowsIconIco: BRAND_ASSET_PATHS.nightlyWindowsIconIco,
-    };
-  }
-
-  return {
-    macIconPng: BRAND_ASSET_PATHS.productionMacIconPng,
-    linuxIconPng: BRAND_ASSET_PATHS.productionLinuxIconPng,
-    windowsIconIco: BRAND_ASSET_PATHS.productionWindowsIconIco,
-  };
+export function resolveDesktopBuildIconAssets(
+  version: string,
+  personalBrand: DesktopPersonalBrand | null = resolveDesktopPersonalBrand(),
+): DesktopBuildIconAssets {
+  const assets =
+    resolveDesktopUpdateChannel(version) === "nightly"
+      ? {
+          macIconPng: BRAND_ASSET_PATHS.nightlyMacIconPng,
+          linuxIconPng: BRAND_ASSET_PATHS.nightlyLinuxIconPng,
+          windowsIconIco: BRAND_ASSET_PATHS.nightlyWindowsIconIco,
+        }
+      : {
+          macIconPng: BRAND_ASSET_PATHS.productionMacIconPng,
+          linuxIconPng: BRAND_ASSET_PATHS.productionLinuxIconPng,
+          windowsIconIco: BRAND_ASSET_PATHS.productionWindowsIconIco,
+        };
+  return personalBrand?.icons
+    ? { ...assets, windowsIconIco: personalBrand.icons.windowsIconIco }
+    : assets;
 }
 
 export function resolveMockUpdateServerUrl(mockUpdateServerPort: number | undefined): string {
@@ -2765,10 +2780,22 @@ export function resolvePackageManagerUserAgent(packageManager: string): string {
   return `${trimmed.slice(0, versionSeparator)}/${trimmed.slice(versionSeparator + 1)}`;
 }
 
-export function resolveDesktopProductName(version: string): string {
+export function resolveDesktopProductName(
+  version: string,
+  personalBrand: DesktopPersonalBrand | null = resolveDesktopPersonalBrand(),
+): string {
+  if (personalBrand) return personalBrand.productName;
   return resolveDesktopUpdateChannel(version) === "nightly"
     ? "T3 Code (Nightly)"
     : (desktopPackageJson.productName ?? "T3 Code");
+}
+
+/** The packaged .exe name. A personal brand keeps it ASCII even when its product name is not. */
+export function resolveDesktopWindowsExecutableName(
+  version: string,
+  personalBrand: DesktopPersonalBrand | null = resolveDesktopPersonalBrand(),
+): string {
+  return `${personalBrand?.executableName ?? resolveDesktopProductName(version, null)}.exe`;
 }
 
 export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
@@ -2970,9 +2997,11 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
       differentialPackage: true,
       include: "apps/desktop/resources/installer.nsh",
     };
+    const personalBrand = resolveDesktopPersonalBrand();
     const winConfig: Record<string, unknown> = {
       target: [target],
       icon: "icon.ico",
+      ...(personalBrand ? { executableName: personalBrand.executableName } : {}),
       // Smart App Control validates unpacked native libraries independently; sign them too.
       signExts: [".node", ".dll"],
       // Resource editing sets product icons even when code signing is disabled.
@@ -4104,7 +4133,7 @@ const buildDesktopArtifactUnlocked = Effect.fn("buildDesktopArtifactUnlocked")(f
   if (options.platform === "win") {
     yield* validateWindowsPackagedPayload({
       stageDistDir,
-      appExecutableName: `${resolveDesktopProductName(appVersion)}.exe`,
+      appExecutableName: resolveDesktopWindowsExecutableName(appVersion),
       targetArch: options.arch,
       appVersion,
       expectWslRuntime: bundlesWslRuntime({

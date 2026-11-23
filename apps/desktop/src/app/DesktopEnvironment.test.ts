@@ -38,6 +38,19 @@ const makeEnvironment = (
 ) => DesktopEnvironment.DesktopEnvironment.pipe(Effect.provide(layerEnvironment(overrides, env)));
 
 describe("DesktopEnvironment", () => {
+  it("names a personal build by its own name, without a stage suffix", () => {
+    const input = { isDevelopment: false, appVersion: "0.1.11" };
+    assert.deepStrictEqual(DesktopEnvironment.resolveDesktopAppBranding(input), {
+      baseName: "T3 Code",
+      stageLabel: "Beta",
+      displayName: "T3 Code (Beta)",
+    });
+    assert.deepStrictEqual(
+      DesktopEnvironment.resolveDesktopAppBranding({ ...input, personalAppName: " 星野 " }),
+      { baseName: "星野", stageLabel: "Beta", displayName: "星野" },
+    );
+  });
+
   it.effect("uses the packaged Windows server sidecar as the backend root", () =>
     Effect.gen(function* () {
       const environment = yield* makeEnvironment({

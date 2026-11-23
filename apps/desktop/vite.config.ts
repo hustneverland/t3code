@@ -24,6 +24,8 @@ const publicConfigDefine = {
   __T3CODE_BUILD_CLERK_PUBLISHABLE_KEY__: JSON.stringify(
     repoEnv.T3CODE_CLERK_PUBLISHABLE_KEY?.trim() ?? "",
   ),
+  // A personal build's own name; empty in the stock build.
+  __T3CODE_BUILD_APP_NAME__: JSON.stringify(repoEnv.T3CODE_DESKTOP_APP_NAME?.trim() ?? ""),
 };
 
 export default defineConfig({

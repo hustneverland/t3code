@@ -37,7 +37,8 @@ export const BRAND_ASSET_PATHS = {
   developmentWebIcon512Png: "assets/dev/blueprint-web-icon-512x512.png",
 } as const;
 
-export type WebAssetBrand = "development" | "nightly" | "production";
+/** `xingye` is a personal build's icon set; no release channel selects it. */
+export type WebAssetBrand = "development" | "nightly" | "production" | "xingye";
 
 export const WEB_ASSET_CHANNELS = ["latest", "nightly"] as const;
 
@@ -85,6 +86,14 @@ const WEB_ICON_SOURCE_PATHS_BY_BRAND = {
     appleTouchIconPng: BRAND_ASSET_PATHS.productionWebAppleTouchIconPng,
     icon192Png: BRAND_ASSET_PATHS.productionWebIcon192Png,
     icon512Png: BRAND_ASSET_PATHS.productionWebIcon512Png,
+  },
+  xingye: {
+    faviconIco: "assets/personal/xingye-web-favicon.ico",
+    favicon16Png: "assets/personal/xingye-web-favicon-16x16.png",
+    favicon32Png: "assets/personal/xingye-web-favicon-32x32.png",
+    appleTouchIconPng: "assets/personal/xingye-web-apple-touch-180.png",
+    icon192Png: "assets/personal/xingye-web-icon-192x192.png",
+    icon512Png: "assets/personal/xingye-web-icon-512x512.png",
   },
 } as const satisfies Record<WebAssetBrand, Record<keyof typeof WEB_ICON_TARGET_FILENAMES, string>>;
 

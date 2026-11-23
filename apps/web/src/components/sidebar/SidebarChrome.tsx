@@ -1,10 +1,17 @@
-import { ArrowLeftIcon, ArrowRightIcon, ChartNoAxesColumnIcon, SettingsIcon } from "lucide-react";
+import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  ChartNoAxesColumnIcon,
+  MoonStarIcon,
+  SettingsIcon,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { T, useGT } from "gt-react";
 import { memo } from "react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 
 import { useAtomValue } from "@effect/atom-react";
+import { PERSONAL_APP_NAME } from "../../branding";
 import { useEnvironmentIdentificationMode } from "../../hooks/useSettings";
 import { shortcutLabelForCommand } from "../../keybindings";
 import {
@@ -184,6 +191,17 @@ function SidebarBrand({ onBackdrop }: { onBackdrop: boolean }) {
 }
 
 function SidebarBrandMark({ onBackdrop }: { onBackdrop: boolean }) {
+  if (PERSONAL_APP_NAME !== null) {
+    return (
+      <span className="inline-flex min-w-0 items-center gap-1.5 text-sm font-medium tracking-tight">
+        <MoonStarIcon
+          aria-hidden="true"
+          className={cn("size-3.5 shrink-0", onBackdrop ? "text-white" : "text-primary")}
+        />
+        <span className="truncate">{PERSONAL_APP_NAME}</span>
+      </span>
+    );
+  }
   return (
     <span className="inline-flex min-w-0 items-baseline gap-1 text-sm font-medium tracking-tight">
       <T3Wordmark aria-label="T3" className="h-[1cap] w-auto shrink-0" />
