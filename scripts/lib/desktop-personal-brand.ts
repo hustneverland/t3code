@@ -7,18 +7,27 @@ import type { WebAssetBrand } from "./brand-assets.ts";
 export interface DesktopPersonalBrand {
   /** Shown to the user: installer, shortcuts, window title. May be any script. */
   readonly productName: string;
-  /** The .exe base name. ASCII, because the `t3` launcher is a batch file that names this path. */
+  /**
+   * The .exe base name, and the name on the macOS disk image. ASCII, because the `t3` launcher is
+   * a batch file that names this path.
+   */
   readonly executableName: string;
   readonly icons: DesktopPersonalBrandIcons | null;
 }
 
 export interface DesktopPersonalBrandIcons {
   readonly windowsIconIco: string;
+  /** 1024 px, drawn on Apple's icon grid: an 824 px body with transparent margins. */
+  readonly macIconPng: string;
   readonly webAssetBrand: WebAssetBrand;
 }
 
 const ICON_PRESETS: Readonly<Record<string, DesktopPersonalBrandIcons>> = {
-  xingye: { windowsIconIco: "assets/personal/xingye-windows.ico", webAssetBrand: "xingye" },
+  xingye: {
+    windowsIconIco: "assets/personal/xingye-windows.ico",
+    macIconPng: "assets/personal/xingye-macos-1024.png",
+    webAssetBrand: "xingye",
+  },
 };
 
 const ASCII_FILE_NAME = /^[A-Za-z0-9][A-Za-z0-9 ._()-]*$/;

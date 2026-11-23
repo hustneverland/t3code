@@ -18,7 +18,11 @@ describe("resolveDesktopPersonalBrand", () => {
     ).toEqual({
       productName: "星野",
       executableName: "Xingye",
-      icons: { windowsIconIco: "assets/personal/xingye-windows.ico", webAssetBrand: "xingye" },
+      icons: {
+        windowsIconIco: "assets/personal/xingye-windows.ico",
+        macIconPng: "assets/personal/xingye-macos-1024.png",
+        webAssetBrand: "xingye",
+      },
     });
   });
 

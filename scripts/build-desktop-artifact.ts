@@ -2761,7 +2761,11 @@ export function resolveDesktopBuildIconAssets(
           windowsIconIco: BRAND_ASSET_PATHS.productionWindowsIconIco,
         };
   return personalBrand?.icons
-    ? { ...assets, windowsIconIco: personalBrand.icons.windowsIconIco }
+    ? {
+        ...assets,
+        macIconPng: personalBrand.icons.macIconPng,
+        windowsIconIco: personalBrand.icons.windowsIconIco,
+      }
     : assets;
 }
 
@@ -2860,12 +2864,18 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
     }
   }
 
+  const personalBrand = resolveDesktopPersonalBrand();
+
   if (platform === "mac") {
     const path = yield* Path.Path;
     const repoRoot = yield* RepoRoot;
     buildConfig.mac = {
       target: target === "dmg" ? [target, "zip"] : [target],
       icon: "icon.icns",
+      // Without a Developer ID, a personal build is signed ad hoc so the bundle has one identity
+      // and Gatekeeper offers "Open Anyway" in place of "damaged". The hardened runtime would
+      // reject Electron's frameworks under an ad hoc signature.
+      ...(personalBrand && !signed ? { identity: "-", hardenedRuntime: false } : {}),
       category: "public.app-category.developer-tools",
       extendInfo: {
         // macOS 26 offers Messages/Mail codes in every text field unless opted out.
@@ -2919,7 +2929,8 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
   if (platform === "mac" && target === "dmg") {
     buildConfig.dmg = {
       // Finder caches DMG backgrounds by volume name; give each installer its own.
-      title: `${resolveDesktopProductName(version)} ${version} Installer`,
+      // hdiutil volume names stay ASCII; a personal brand's product name may not be.
+      title: `${personalBrand?.executableName ?? resolveDesktopProductName(version)} ${version} Installer`,
       background: `dmg/dmg-background-${updateChannel}.png`,
       window: {
         width: 640,
@@ -2997,7 +3008,6 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
       differentialPackage: true,
       include: "apps/desktop/resources/installer.nsh",
     };
-    const personalBrand = resolveDesktopPersonalBrand();
     const winConfig: Record<string, unknown> = {
       target: [target],
       icon: "icon.ico",

@@ -1,0 +1,152 @@
+name: Personal macOS Desktop
+
+# Unsigned by Apple: there is no Developer ID here, so the app is signed ad hoc.
+# macOS asks once for "Open Anyway" in System Settings > Privacy & Security.
+
+on:
+  push:
+    branches:
+      - android-personal
+    paths:
+      - apps/web/**
+      - apps/server/**
+      - apps/desktop/**
+      - packages/**
+      - native/resource-monitor/**
+      - assets/**
+      - patches/**
+      - scripts/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - .env.example
+      - .github/workflows/personal-macos-desktop.yml
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Build version (e.g. 0.1.11)
+        required: false
+        default: "0.1.11"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: personal-macos-desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-mac:
+    name: Build macOS ${{ matrix.arch }} (${{ inputs.version || '0.1.11' }})
+    if: github.repository == 'hustneverland/t3code'
+    runs-on: macos-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            rust_target: aarch64-apple-darwin
+          - arch: x64
+            rust_target: x86_64-apple-darwin
+    env:
+      BUILD_VERSION: ${{ inputs.version || '0.1.11' }}
+      T3CODE_TELEMETRY_CHANNEL: dev
+      T3CODE_DESKTOP_APP_NAME: 星野
+      T3CODE_DESKTOP_EXECUTABLE_NAME: Xingye
+      T3CODE_DESKTOP_ICON_PRESET: xingye
+      NODE_OPTIONS: --max-old-space-size=6144
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          sparse-checkout: |
+            /*
+            !/.repos/
+          sparse-checkout-cone-mode: false
+
+      - name: Setup dependencies
+        uses: ./.github/actions/setup-ci-deps
+        with:
+          install-args: --filter=t3... --filter=@t3tools/web... --filter=@t3tools/desktop... --filter=@t3tools/scripts...
+          # Both architectures install the same packages; one saved store serves both.
+          save-pnpm-store: ${{ matrix.arch == 'arm64' }}
+
+      - name: Enable T3 Connect public config
+        run: cp .env.example .env
+
+      - name: Align package versions
+        run: node scripts/update-release-package-versions.ts "${BUILD_VERSION}"
+
+      - name: Build desktop JS bundle (web + server + electron)
+        run: vp run build:desktop:bundle
+
+      - name: Ensure Rosetta for macOS x64 bytecode generation
+        if: matrix.arch == 'x64'
+        run: |
+          if [[ "$(uname -m)" == "arm64" ]] && ! /usr/bin/arch -x86_64 /usr/bin/true; then
+            sudo /usr/sbin/softwareupdate --install-rosetta --agree-to-license
+          fi
+
+      - name: Cache resource monitor
+        id: resource_monitor_cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: native/resource-monitor/target/${{ matrix.rust_target }}/release/t3-resource-monitor
+          key: personal-resource-monitor-${{ matrix.rust_target }}-${{ hashFiles('native/resource-monitor/Cargo.lock', 'native/resource-monitor/Cargo.toml', 'native/resource-monitor/src/**') }}
+
+      - name: Setup Rust
+        if: steps.resource_monitor_cache.outputs.cache-hit != 'true'
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: stable
+          targets: ${{ matrix.rust_target }}
+
+      - name: Build macOS resource monitor
+        if: steps.resource_monitor_cache.outputs.cache-hit != 'true'
+        run: cargo build --locked --release --manifest-path native/resource-monitor/Cargo.toml --target "${{ matrix.rust_target }}"
+
+      - name: Package macOS disk image
+        env:
+          T3CODE_DESKTOP_REUSE_RESOURCE_MONITOR: "true"
+        run: |
+          vp run dist:desktop:artifact \
+            --platform mac \
+            --target dmg \
+            --arch "${{ matrix.arch }}" \
+            --build-version "${BUILD_VERSION}" \
+            --skip-build \
+            --verbose
+
+      # A bundle that fails this check is the one macOS reports as damaged.
+      - name: Verify the app inside the disk image
+        run: |
+          set -euo pipefail
+          DMG="$(ls release/T3-Code-*-${{ matrix.arch }}.dmg | head -n 1)"
+          MOUNT="$(mktemp -d)"
+          hdiutil attach "${DMG}" -nobrowse -readonly -mountpoint "${MOUNT}"
+          trap 'hdiutil detach "${MOUNT}" -quiet || true' EXIT
+          APP="$(ls -d "${MOUNT}"/*.app | head -n 1)"
+          codesign --verify --deep --strict --verbose=2 "${APP}"
+          codesign --display --verbose=2 "${APP}" 2>&1 | grep -E '^(Identifier|Signature|TeamIdentifier|CodeDirectory)' || true
+          EXECUTABLE="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "${APP}/Contents/Info.plist")"
+          ARCHS="$(lipo -archs "${APP}/Contents/MacOS/${EXECUTABLE}")"
+          SHA256="$(shasum -a 256 "${DMG}" | awk '{print $1}')"
+          SIZE_MB="$(du -m "${DMG}" | awk '{print $1}')"
+          {
+            echo "### Personal macOS ${{ matrix.arch }} disk image"
+            echo "- File: \`$(basename "${DMG}")\` (${SIZE_MB} MB)"
+            echo "- App: \`$(basename "${APP}")\`, executable \`${EXECUTABLE}\` (\`${ARCHS}\`)"
+            echo "- Version: \`${BUILD_VERSION}\`"
+            echo "- SHA-256: \`${SHA256}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload macOS disk image
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: T3-Code-Personal-mac-${{ matrix.arch }}
+          path: release/T3-Code-*-${{ matrix.arch }}.dmg
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
