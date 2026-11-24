@@ -27,6 +27,21 @@ export interface VoicePlaybackSnapshot {
   readonly apiKeyConfigured: boolean | null;
 }
 
+interface ActiveStreamQueue {
+  readonly messageId: string;
+  readonly generation: number;
+  readonly apiKey: string;
+  readonly voiceId: string;
+  readonly controller: AbortController;
+  readonly pendingTexts: string[];
+  readonly prefetched: Array<{
+    readonly promise: Promise<File>;
+  }>;
+  nextChunkIndex: number;
+  ended: boolean;
+  wake: (() => void) | null;
+}
+
 let snapshot: VoicePlaybackSnapshot = {
   status: "idle",
   messageId: null,
@@ -41,6 +56,10 @@ let activePlayer: AudioPlayer | null = null;
 let activePlayerSubscription: { remove(): void } | null = null;
 let activeSessionToken: ReturnType<typeof acquireAudioSession> | null = null;
 let activeResolveWait: (() => void) | null = null;
+let activeStream: ActiveStreamQueue | null = null;
+
+/** Message IDs explicitly stopped by the user mid-stream so later tokens never restart speech. */
+const suppressedStreamMessageIds = new Set<string>();
 
 const listeners = new Set<() => void>();
 
@@ -66,6 +85,14 @@ export function useVoicePlaybackSnapshot(): VoicePlaybackSnapshot {
     getVoicePlaybackSnapshot,
     getVoicePlaybackSnapshot,
   );
+}
+
+export function isMessageStreamSuppressed(messageId: string): boolean {
+  return suppressedStreamMessageIds.has(messageId);
+}
+
+export function suppressMessageStream(messageId: string): void {
+  suppressedStreamMessageIds.add(messageId);
 }
 
 export async function loadVolcengineTtsApiKey(): Promise<string | null> {
@@ -240,6 +267,15 @@ function releaseActiveSession() {
 }
 
 export function stopSpeaking(): void {
+  if (activeStream) {
+    suppressedStreamMessageIds.add(activeStream.messageId);
+    const wake = activeStream.wake;
+    activeStream.wake = null;
+    activeStream = null;
+    wake?.();
+  } else if (snapshot.messageId) {
+    suppressedStreamMessageIds.add(snapshot.messageId);
+  }
   playbackGeneration += 1;
   activeAbortController?.abort();
   activeAbortController = null;
@@ -308,12 +344,101 @@ async function playAudioFile(file: File, generation: number): Promise<void> {
   });
 }
 
-export async function speakMessage(input: {
+function pumpStreamPrefetch(stream: ActiveStreamQueue) {
+  while (stream.prefetched.length < 2 && stream.pendingTexts.length > 0) {
+    const text = stream.pendingTexts.shift()!;
+    const chunkIndex = stream.nextChunkIndex;
+    stream.nextChunkIndex += 1;
+    const promise = synthesizeChunkToFile({
+      apiKey: stream.apiKey,
+      text,
+      voiceId: stream.voiceId,
+      generation: stream.generation,
+      chunkIndex,
+      signal: stream.controller.signal,
+    });
+    // Attach a noop rejection handler so aborted prefetches never emit unhandledRejection.
+    void promise.catch(() => {});
+    stream.prefetched.push({ promise });
+  }
+}
+
+async function runStreamLoop(stream: ActiveStreamQueue): Promise<void> {
+  const tempFiles: File[] = [];
+  try {
+    while (stream.generation === playbackGeneration && activeStream === stream) {
+      pumpStreamPrefetch(stream);
+      const nextItem = stream.prefetched.shift();
+      if (!nextItem) {
+        if (stream.ended) break;
+        await new Promise<void>((resolve) => {
+          stream.wake = resolve;
+        });
+        stream.wake = null;
+        continue;
+      }
+
+      const file = await nextItem.promise;
+      tempFiles.push(file);
+      if (stream.generation !== playbackGeneration || activeStream !== stream) break;
+
+      // Kick off prefetch for the next queued sentence before starting playback.
+      pumpStreamPrefetch(stream);
+      await playAudioFile(file, stream.generation);
+      safeDeleteFile(file);
+    }
+
+    if (stream.generation === playbackGeneration && activeStream === stream) {
+      activeStream = null;
+      releaseActiveSession();
+      emitSnapshot({ status: "idle", messageId: null, error: null });
+    }
+  } catch (error) {
+    if (
+      stream.generation === playbackGeneration &&
+      activeStream === stream &&
+      !stream.controller.signal.aborted
+    ) {
+      const message = error instanceof Error ? error.message : String(error);
+      activeStream = null;
+      releaseActiveSession();
+      emitSnapshot({ status: "idle", messageId: null, error: message });
+    }
+  } finally {
+    if (activeAbortController === stream.controller) {
+      activeAbortController = null;
+    }
+    for (const file of tempFiles) safeDeleteFile(file);
+  }
+}
+
+/**
+ * Starts or appends to a live sentence-by-sentence streaming TTS queue for a message.
+ * Allows audio playback to begin as soon as the first sentence finishes streaming.
+ */
+export async function appendStreamingSpeechChunks(input: {
   readonly messageId: string;
-  readonly text: string;
   readonly voiceId: string;
+  readonly chunks: readonly string[];
+  readonly ended: boolean;
   readonly silentOnMissingKey?: boolean;
 }): Promise<boolean> {
+  if (suppressedStreamMessageIds.has(input.messageId)) return false;
+
+  if (activeStream && activeStream.messageId === input.messageId) {
+    for (const chunk of input.chunks) {
+      if (chunk.trim().length > 0) activeStream.pendingTexts.push(chunk);
+    }
+    if (input.ended) activeStream.ended = true;
+    pumpStreamPrefetch(activeStream);
+    const wake = activeStream.wake;
+    activeStream.wake = null;
+    wake?.();
+    return true;
+  }
+
+  if (input.chunks.length === 0) return false;
+
   const apiKey = await loadVolcengineTtsApiKey();
   if (!apiKey) {
     if (!input.silentOnMissingKey) {
@@ -327,68 +452,51 @@ export async function speakMessage(input: {
     return false;
   }
 
-  const chunks = prepareTextForTts(input.text);
-  if (chunks.length === 0) return false;
+  // Re-check suppression after async key lookup.
+  if (suppressedStreamMessageIds.has(input.messageId)) return false;
 
   stopSpeaking();
+  // Starting this message clears any prior suppression on itself only when explicitly new.
+  suppressedStreamMessageIds.delete(input.messageId);
   const generation = playbackGeneration;
   const controller = new AbortController();
   activeAbortController = controller;
   emitSnapshot({ status: "loading", messageId: input.messageId, error: null });
 
-  const tempFiles: File[] = [];
-  try {
-    let nextPromise: Promise<File> | null = synthesizeChunkToFile({
-      apiKey,
-      text: chunks[0]!,
-      voiceId: input.voiceId,
-      generation,
-      chunkIndex: 0,
-      signal: controller.signal,
-    });
+  const stream: ActiveStreamQueue = {
+    messageId: input.messageId,
+    generation,
+    apiKey,
+    voiceId: input.voiceId,
+    controller,
+    pendingTexts: input.chunks.filter((chunk) => chunk.trim().length > 0),
+    prefetched: [],
+    nextChunkIndex: 0,
+    ended: input.ended,
+    wake: null,
+  };
+  activeStream = stream;
+  void runStreamLoop(stream);
+  return true;
+}
 
-    for (let i = 0; i < chunks.length; i += 1) {
-      if (generation !== playbackGeneration) break;
-      const currentFile = await nextPromise!;
-      tempFiles.push(currentFile);
-      if (generation !== playbackGeneration) break;
-
-      // Prefetch the next sentence while the current sentence plays.
-      if (i + 1 < chunks.length) {
-        nextPromise = synthesizeChunkToFile({
-          apiKey,
-          text: chunks[i + 1]!,
-          voiceId: input.voiceId,
-          generation,
-          chunkIndex: i + 1,
-          signal: controller.signal,
-        });
-      } else {
-        nextPromise = null;
-      }
-
-      await playAudioFile(currentFile, generation);
-      safeDeleteFile(currentFile);
-    }
-
-    if (generation === playbackGeneration) {
-      releaseActiveSession();
-      emitSnapshot({ status: "idle", messageId: null, error: null });
-    }
-    return true;
-  } catch (error) {
-    if (generation === playbackGeneration && !controller.signal.aborted) {
-      const message = error instanceof Error ? error.message : String(error);
-      releaseActiveSession();
-      emitSnapshot({ status: "idle", messageId: null, error: message });
-    }
-    return false;
-  } finally {
-    if (activeAbortController === controller) {
-      activeAbortController = null;
-    }
-    for (const file of tempFiles) safeDeleteFile(file);
-  }
+export async function speakMessage(input: {
+  readonly messageId: string;
+  readonly text: string;
+  readonly voiceId: string;
+  readonly silentOnMissingKey?: boolean;
+}): Promise<boolean> {
+  // Explicit manual play clears any previous suppression for this message.
+  suppressedStreamMessageIds.delete(input.messageId);
+  const chunks = prepareTextForTts(input.text);
+  if (chunks.length === 0) return false;
+  return appendStreamingSpeechChunks({
+    messageId: input.messageId,
+    voiceId: input.voiceId,
+    chunks,
+    ended: true,
+    silentOnMissingKey: input.silentOnMissingKey,
+  });
 }
 
 export async function speakVoicePreview(voiceId: string): Promise<boolean> {

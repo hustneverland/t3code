@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   cleanMarkdownForTts,
+  extractStreamingTtsChunks,
   prepareTextForTts,
   shouldAutoSpeakAssistantMessage,
 } from "./ttsTextCleaner";
@@ -69,5 +70,39 @@ describe("ttsTextCleaner", () => {
         alreadyHandled: true,
       }),
     ).toBe(false);
+  });
+
+  it("extracts streaming sentences incrementally and skips unclosed code fences cleanly", () => {
+    // 1. Mid-sentence: should hold back
+    const step1 = extractStreamingTtsChunks({
+      rawMarkdown: "哈喽哥哥，我正在帮你改",
+      consumedRawIndex: 0,
+      streaming: true,
+      alreadySpokenChars: 0,
+    });
+    expect(step1.chunks).toEqual([]);
+    expect(step1.nextRawIndex).toBe(0);
+
+    // 2. First sentence completes + code fence opens (unclosed): emits sentence 1, holds back code fence
+    const text2 = "哈喽哥哥，我正在帮你改这个功能喔！\n```ts\nconst a = 1;";
+    const step2 = extractStreamingTtsChunks({
+      rawMarkdown: text2,
+      consumedRawIndex: step1.nextRawIndex,
+      streaming: true,
+      alreadySpokenChars: 0,
+    });
+    expect(step2.chunks).toEqual(["哈喽哥哥，我正在帮你改这个功能喔！"]);
+    expect(step2.nextRawIndex).toBeGreaterThan(0);
+
+    // 3. Code fence closes and final sentence completes
+    const text3 = `${text2}\n\`\`\`\n已经全部改完啦，直接更新就能听见边输出边说！`;
+    const step3 = extractStreamingTtsChunks({
+      rawMarkdown: text3,
+      consumedRawIndex: step2.nextRawIndex,
+      streaming: false,
+      alreadySpokenChars: step2.addedSpokenChars,
+    });
+    expect(step3.chunks).toEqual(["已经全部改完啦，直接更新就能听见边输出边说！"]);
+    expect(step3.chunks.join("")).not.toContain("const a");
   });
 });
