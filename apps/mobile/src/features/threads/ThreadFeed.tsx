@@ -209,6 +209,7 @@ import {
   type MediaVideoPreviewSource,
 } from "../../lib/videoPreviewSource";
 import { CopyTextButton } from "./CopyTextButton";
+import { SpeakMessageButton } from "../voice-playback/SpeakMessageButton";
 import { getReviewSectionIdForCheckpoint } from "../review/reviewModel";
 import { setReviewSelectedSectionId } from "../review/reviewState";
 import { Menu } from "../../components/ui/Menu";
@@ -2710,6 +2711,15 @@ function renderFeedEntry(
               buttonSize={props.replyActionSize.button}
               iconSize={props.replyActionSize.icon}
             />
+            {renderedText.trim().length > 0 ? (
+              <SpeakMessageButton
+                messageId={message.id}
+                text={renderedText}
+                tintColor={iconSubtleColor}
+                buttonSize={props.replyActionSize.button}
+                iconSize={props.replyActionSize.icon}
+              />
+            ) : null}
             {message.projectedItem ? (
               <AssistantForkButton
                 environmentId={props.environmentId}

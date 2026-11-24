@@ -183,6 +183,8 @@ export interface Preferences {
   readonly workspaceSelections?: WorkspaceSelections;
   readonly pullRequestSavedViews?: ReadonlyArray<PullRequestSavedView>;
   readonly issueSavedViews?: ReadonlyArray<IssueSavedView>;
+  readonly ttsAutoPlay?: boolean;
+  readonly ttsVoiceId?: string;
 }
 
 export class MobilePreferencesLoadError extends Schema.TaggedError<MobilePreferencesLoadError>()(
@@ -270,6 +272,8 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     workspaceSelections?: WorkspaceSelections;
     pullRequestSavedViews?: ReadonlyArray<PullRequestSavedView>;
     issueSavedViews?: ReadonlyArray<IssueSavedView>;
+    ttsAutoPlay?: boolean;
+    ttsVoiceId?: string;
   } = {};
 
   if (Array.isArray(parsed.hiddenNavigationTabs)) {
@@ -434,6 +438,12 @@ function sanitizePreferences(parsed: Preferences): Preferences {
   }
   if (Array.isArray(parsed.issueSavedViews)) {
     preferences.issueSavedViews = parsed.issueSavedViews.filter(isIssueSavedView);
+  }
+  if (typeof parsed.ttsAutoPlay === "boolean") {
+    preferences.ttsAutoPlay = parsed.ttsAutoPlay;
+  }
+  if (typeof parsed.ttsVoiceId === "string" && parsed.ttsVoiceId.trim().length > 0) {
+    preferences.ttsVoiceId = parsed.ttsVoiceId.trim();
   }
   return preferences;
 }
