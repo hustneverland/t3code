@@ -79,8 +79,8 @@ export const SpeakMessageButton = memo(function SpeakMessageButton(props: {
       })}
     >
       <SymbolView
-        name={isActive ? "stop.fill" : "waveform"}
-        size={isActive ? Math.max(11, (props.iconSize ?? 13) - 1) : (props.iconSize ?? 14)}
+        name={isActive ? "stop.circle" : "waveform"}
+        size={props.iconSize ?? 14}
         tintColor={isActive ? undefined : props.tintColor}
         tintColorClassName={
           isActive ? "accent-primary" : props.tintColor ? undefined : "accent-foreground"

@@ -70,8 +70,7 @@ export function ThreadHeader(props: {
     ? [
         {
           accessibilityLabel: VOICE_MENU_COPY.stop,
-          icon: "stop.fill",
-          selected: true,
+          icon: "stop.circle",
           separateBackground: false,
           onPress: stopSpeaking,
         },
@@ -79,16 +78,6 @@ export function ThreadHeader(props: {
     : [];
 
   const voiceMenuItems: AppBarMenuItem[] = [
-    ...(isSpeaking
-      ? [
-          {
-            id: "tts-stop",
-            title: VOICE_MENU_COPY.stop,
-            icon: "stop.fill",
-            onPress: stopSpeaking,
-          },
-        ]
-      : []),
     {
       id: "tts-autoplay",
       title: VOICE_MENU_COPY.autoPlay,
@@ -158,7 +147,7 @@ export function ThreadHeader(props: {
   }
 
   const menus: AppBarMenu[] = [
-    voiceMenu,
+    ...(isSpeaking ? [] : [voiceMenu]),
     ...(overflowToolItems.length > 0
       ? [
           {

@@ -139,7 +139,7 @@ import IconUserPlus from "@tabler/icons-react-native/IconUserPlus";
 import IconUsers from "@tabler/icons-react-native/IconUsers";
 import IconVolume from "@tabler/icons-react-native/IconVolume";
 import IconVolumeOff from "@tabler/icons-react-native/IconVolumeOff";
-import IconWaveSine from "@tabler/icons-react-native/IconWaveSine";
+import { IconAudioWaveform, IconStopCircle } from "./AudioWaveformIcons";
 import IconWifi from "@tabler/icons-react-native/IconWifi";
 import IconWifiOff from "@tabler/icons-react-native/IconWifiOff";
 import IconWorld from "@tabler/icons-react-native/IconWorld";
@@ -299,7 +299,8 @@ const ANDROID_ICON_BY_SF_SYMBOL = {
   trash: IconTrash,
   "speaker.wave.2": IconVolume,
   "speaker.slash": IconVolumeOff,
-  waveform: IconWaveSine,
+  "stop.circle": IconStopCircle,
+  waveform: IconAudioWaveform,
   wifi: IconWifi,
   "wifi.slash": IconWifiOff,
   "wrench.and.screwdriver": IconTool,

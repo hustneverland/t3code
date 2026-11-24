@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { cleanMarkdownForTts, prepareTextForTts } from "./ttsTextCleaner";
+import {
+  cleanMarkdownForTts,
+  prepareTextForTts,
+  shouldAutoSpeakAssistantMessage,
+} from "./ttsTextCleaner";
 
 describe("ttsTextCleaner", () => {
   it("strips code fences, embeds, URLs, and raw file paths while keeping readable prose", () => {
@@ -29,5 +33,41 @@ describe("ttsTextCleaner", () => {
     const chunks = prepareTextForTts(input);
     expect(chunks.length).toBeGreaterThanOrEqual(2);
     expect(chunks[0]).toBe("哈喽哥哥，第一句已经准备好了，马上开始念给你听喔！");
+  });
+
+  it("never auto-speaks historical messages on open or repeat messages on re-enter", () => {
+    const enteredAt = 1_700_000_000_000;
+    // Old message from 30 seconds before opening the thread -> must NOT auto-speak
+    expect(
+      shouldAutoSpeakAssistantMessage({
+        messageId: "m-old",
+        createdAt: new Date(enteredAt - 30_000).toISOString(),
+        observedStreaming: false,
+        screenEnteredAtMs: enteredAt,
+        alreadyHandled: false,
+      }),
+    ).toBe(false);
+
+    // Live message observed streaming -> MUST auto-speak once
+    expect(
+      shouldAutoSpeakAssistantMessage({
+        messageId: "m-live",
+        createdAt: new Date(enteredAt - 20_000).toISOString(),
+        observedStreaming: true,
+        screenEnteredAtMs: enteredAt,
+        alreadyHandled: false,
+      }),
+    ).toBe(true);
+
+    // Same message after returning to the thread -> must NOT replay
+    expect(
+      shouldAutoSpeakAssistantMessage({
+        messageId: "m-live",
+        createdAt: new Date(enteredAt + 2_000).toISOString(),
+        observedStreaming: true,
+        screenEnteredAtMs: enteredAt,
+        alreadyHandled: true,
+      }),
+    ).toBe(false);
   });
 });

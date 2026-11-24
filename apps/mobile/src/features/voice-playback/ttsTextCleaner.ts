@@ -1,6 +1,25 @@
 const MAX_TOTAL_TTS_CHARS = 1200;
 const TARGET_CHUNK_CHARS = 110;
 const MAX_CHUNK_CHARS = 180;
+const FRESH_REPLY_GRACE_MS = 5_000;
+
+/**
+ * Decides whether a newly-observed completed assistant reply should auto-speak.
+ * Historical messages already present before opening/re-entering the thread are skipped.
+ */
+export function shouldAutoSpeakAssistantMessage(input: {
+  readonly messageId: string;
+  readonly createdAt: string;
+  readonly observedStreaming: boolean;
+  readonly screenEnteredAtMs: number;
+  readonly alreadyHandled: boolean;
+}): boolean {
+  if (input.alreadyHandled) return false;
+  if (input.observedStreaming) return true;
+  const createdMs = Date.parse(input.createdAt);
+  if (!Number.isFinite(createdMs)) return false;
+  return createdMs >= input.screenEnteredAtMs - FRESH_REPLY_GRACE_MS;
+}
 
 /**
  * Strips code blocks, raw paths, URLs, and Markdown noise so TTS reads only natural prose.

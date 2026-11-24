@@ -201,7 +201,7 @@ export function VoicePlaybackSettingsSection() {
           className="flex-row items-center justify-center gap-2 border-t border-border-subtle px-4 py-3.5 active:opacity-60"
         >
           <SymbolView
-            name={previewing ? "stop.fill" : "waveform"}
+            name={previewing ? "stop.circle" : "waveform"}
             size={16}
             tintColorClassName="accent-primary"
             type="monochrome"
