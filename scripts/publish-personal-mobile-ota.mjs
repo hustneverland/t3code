@@ -84,6 +84,7 @@ function main() {
     ...process.env,
     APP_VARIANT: "production",
     T3CODE_ANDROID_PACKAGE: "io.github.hustneverland.t3code",
+    T3CODE_MOBILE_VERSION: "2.3.1",
     T3CODE_MOBILE_APP_NAME: "星野",
     T3CODE_MOBILE_ICON_PRESET: "xingye",
     MOBILE_VERSION_POLICY: "appVersion",

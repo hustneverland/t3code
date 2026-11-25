@@ -21,9 +21,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Build version (e.g. 0.1.11)
+        description: Build version (e.g. 0.1.12)
         required: false
-        default: "0.1.11"
+        default: "0.1.12"
         type: string
 
 permissions:
@@ -35,12 +35,12 @@ concurrency:
 
 jobs:
   build-win-x64:
-    name: Build Windows x64 Installer (${{ inputs.version || '0.1.11' }})
+    name: Build Windows x64 Installer (${{ inputs.version || '0.1.12' }})
     if: github.repository == 'hustneverland/t3code'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
-      BUILD_VERSION: ${{ inputs.version || '0.1.11' }}
+      BUILD_VERSION: ${{ inputs.version || '0.1.12' }}
       RUST_TARGET: x86_64-pc-windows-msvc
       T3CODE_TELEMETRY_CHANNEL: dev
       T3CODE_DESKTOP_APP_NAME: 星野

@@ -24,9 +24,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Build version (e.g. 0.1.11)
+        description: Build version (e.g. 0.1.12)
         required: false
-        default: "0.1.11"
+        default: "0.1.12"
         type: string
 
 permissions:
@@ -38,7 +38,7 @@ concurrency:
 
 jobs:
   build-mac:
-    name: Build macOS ${{ matrix.arch }} (${{ inputs.version || '0.1.11' }})
+    name: Build macOS ${{ matrix.arch }} (${{ inputs.version || '0.1.12' }})
     if: github.repository == 'hustneverland/t3code'
     runs-on: macos-latest
     timeout-minutes: 60
@@ -51,7 +51,7 @@ jobs:
           - arch: arm64
             rust_target: aarch64-apple-darwin
     env:
-      BUILD_VERSION: ${{ inputs.version || '0.1.11' }}
+      BUILD_VERSION: ${{ inputs.version || '0.1.12' }}
       T3CODE_TELEMETRY_CHANNEL: dev
       T3CODE_DESKTOP_APP_NAME: 星野
       T3CODE_DESKTOP_EXECUTABLE_NAME: Xingye
