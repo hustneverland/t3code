@@ -38,6 +38,8 @@ import {
   workflowRunInvolves,
 } from "@t3tools/client-runtime/workflows";
 
+import { PERSONAL_APP_NAME } from "~/branding";
+
 const WORKFLOWS_GUIDE_URL = "https://github.com/pingdotgg/t3code/blob/main/docs/user/workflows.md";
 const EVERY_WORKFLOW = "";
 // Never a kind: the questions of no kind are filtered by the empty kind.
@@ -174,26 +176,41 @@ export function WorkflowRunsView({
       <WorkflowsEmpty
         title={gt("No workflow runs yet")}
         description={
-          <T>
-            A workflow ties agents, code, schedules and questions to you into one run that survives
-            restarts. Write one under{" "}
-            <button
-              type="button"
-              className="underline underline-offset-2 hover:text-foreground"
-              onClick={onOpenDefinitions}
-            >
-              Definitions
-            </button>
-            , or ask an agent to.{" "}
-            <a
-              href={WORKFLOWS_GUIDE_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="underline underline-offset-2 hover:text-foreground"
-            >
-              Read the guide
-            </a>
-          </T>
+          PERSONAL_APP_NAME !== null ? (
+            <T>
+              A workflow ties agents, code, schedules and questions to you into one run that
+              survives restarts. Write one under{" "}
+              <button
+                type="button"
+                className="underline underline-offset-2 hover:text-foreground"
+                onClick={onOpenDefinitions}
+              >
+                Definitions
+              </button>
+              , or ask an agent to.
+            </T>
+          ) : (
+            <T>
+              A workflow ties agents, code, schedules and questions to you into one run that
+              survives restarts. Write one under{" "}
+              <button
+                type="button"
+                className="underline underline-offset-2 hover:text-foreground"
+                onClick={onOpenDefinitions}
+              >
+                Definitions
+              </button>
+              , or ask an agent to.{" "}
+              <a
+                href={WORKFLOWS_GUIDE_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="underline underline-offset-2 hover:text-foreground"
+              >
+                Read the guide
+              </a>
+            </T>
+          )
         }
       />,
     );

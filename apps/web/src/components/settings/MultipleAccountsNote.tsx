@@ -3,6 +3,7 @@ import type { EnvironmentId, ProviderDriverKind } from "@t3tools/contracts";
 import { T, Var } from "gt-react";
 import { InfoIcon } from "lucide-react";
 
+import { APP_BASE_NAME, PERSONAL_APP_NAME } from "../../branding";
 import { serverEnvironment } from "../../state/server";
 import { Alert, AlertDescription } from "../ui/alert";
 
@@ -35,17 +36,24 @@ export function MultipleAccountsNote({
       <InfoIcon aria-hidden />
       <AlertDescription>
         <p>
-          <T>
-            We do not recommend managing multiple <Var>{providerName}</Var> accounts in T3 Code.{" "}
-            <a
-              href={MULTIPLE_ACCOUNTS_FAQ_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="underline underline-offset-2 hover:text-foreground"
-            >
-              More info
-            </a>
-          </T>
+          {PERSONAL_APP_NAME !== null ? (
+            <T>
+              We do not recommend managing multiple <Var>{providerName}</Var> accounts in{" "}
+              <Var>{APP_BASE_NAME}</Var>.
+            </T>
+          ) : (
+            <T>
+              We do not recommend managing multiple <Var>{providerName}</Var> accounts in T3 Code.{" "}
+              <a
+                href={MULTIPLE_ACCOUNTS_FAQ_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="underline underline-offset-2 hover:text-foreground"
+              >
+                More info
+              </a>
+            </T>
+          )}
         </p>
       </AlertDescription>
     </Alert>

@@ -49,9 +49,9 @@ function compactFrame(line: string): string {
 
 export function formatStartupCrashReport(
   records: ReadonlyArray<StartupCrashRecord>,
-  app: { readonly version: string; readonly build: string },
+  app: { readonly name?: string; readonly version: string; readonly build: string },
 ): string {
-  const header = `T3 Code ${app.version} (${app.build})`;
+  const header = `${app.name ?? "T3 Code"} ${app.version} (${app.build})`;
   // oxlint-disable-next-line t3code/no-untranslated-copy -- crash report text shared with maintainers
   if (records.length === 0) return `${header}\nNo startup crashes recorded.`;
   return [

@@ -120,7 +120,9 @@ function AppSettingsSection() {
         label={gt("Open source licenses")}
         target="SettingsOpenSourceLicenses"
       />
-      <SettingsRow icon="doc.text" label={gt("Legal")} fullScreenTarget="SettingsLegal" />
+      {!IS_XINGYE_BRAND ? (
+        <SettingsRow icon="doc.text" label={gt("Legal")} fullScreenTarget="SettingsLegal" />
+      ) : null}
       <View className="flex-row items-center gap-4 p-4">
         <SymbolView
           name="info.circle"

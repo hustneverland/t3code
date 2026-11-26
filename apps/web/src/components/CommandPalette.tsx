@@ -1,5 +1,6 @@
 import { thrownErrorMessage } from "@t3tools/client-runtime/errors";
 import { decodeMsg, msg, T, useGT, useMessages, Var } from "gt-react";
+import { PERSONAL_APP_NAME } from "../branding";
 import { m, type MessageResolver } from "../i18n/messages";
 import { ThreadContextDragGhost } from "./chat/ThreadContextDragGhost";
 import { threadPullRequestLinkMode } from "@t3tools/client-runtime/thread-pull-request-compatibility";
@@ -1405,7 +1406,7 @@ function OpenCommandPaletteDialog(props: {
     });
   }
 
-  if (triageEnvironmentId !== null && canTriage) {
+  if (PERSONAL_APP_NAME === null && triageEnvironmentId !== null && canTriage) {
     actionItems.push({
       kind: "action",
       value: "action:triage",
@@ -1751,7 +1752,10 @@ function OpenCommandPaletteDialog(props: {
       "openclaw",
       "hermes",
     ],
-    title: gt("Use T3 Code in another app (MCP)"),
+    title:
+      PERSONAL_APP_NAME !== null
+        ? gt("Use {appName} in another app (MCP)", { appName: PERSONAL_APP_NAME })
+        : gt("Use T3 Code in another app (MCP)"),
     icon: <PlugIcon className={ITEM_ICON_CLASS} />,
     run: async () => {
       openUseInAnotherApp(

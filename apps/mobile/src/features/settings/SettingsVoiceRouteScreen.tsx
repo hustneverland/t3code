@@ -8,6 +8,7 @@ import { Linking, Platform, useWindowDimensions, View } from "react-native";
 import Reanimated, { ReduceMotion, useAnimatedStyle, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { APP_DISPLAY_NAME } from "../../components/brandAssets";
 import { type AppSymbolName } from "../../components/ui/AppSymbol";
 import { AppText as Text } from "../../components/ui/AppText";
 import { cn } from "../../lib/cn";
@@ -360,7 +361,7 @@ export function SettingsVoiceRouteScreen() {
               {permission === "ask"
                 ? gt("Allow microphone access to record and to see your microphones.")
                 : gt("Turn on microphone access for {product} in Settings to use voice input.", {
-                    product: "T3 Code",
+                    product: APP_DISPLAY_NAME,
                   })}
             </Text>
           </>

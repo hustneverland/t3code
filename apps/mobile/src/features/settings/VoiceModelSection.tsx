@@ -17,6 +17,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { Platform, Text as NativeText, View } from "react-native";
 import { m } from "../../i18n/messages";
 
+import { APP_DISPLAY_NAME } from "../../components/brandAssets";
 import { SymbolView } from "../../components/ui/AppSymbol";
 import { AppText as Text } from "../../components/ui/AppText";
 import * as Dialog from "../../components/ui/Dialog";
@@ -336,7 +337,7 @@ export function LocalModelChoice(props: {
             : voice.canManage
               ? gt("No model installed · Choose one to download")
               : gt("No model installed · Add one using {product} on {environment}", {
-                  product: "T3 Code",
+                  product: APP_DISPLAY_NAME,
                   environment: props.label,
                 })
       }

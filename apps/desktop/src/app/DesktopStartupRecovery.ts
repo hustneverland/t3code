@@ -80,7 +80,11 @@ const escapeHtml = (value: string) =>
 const actionLink = (action: StartupRecoveryAction, label: string, primary = false) =>
   `<a class="button${primary ? " primary" : ""}" href="${ACTION_ORIGIN}/${action}">${escapeHtml(label)}</a>`;
 
-function describeOffer(offer: StartupRecoveryOffer): { text: string; action: string } {
+function describeOffer(
+  offer: StartupRecoveryOffer,
+  appName: string,
+  allowReleaseLinks: boolean,
+): { text: string; action: string } {
   switch (offer._tag) {
     case "Checking":
       return { text: m(msg("Checking for a newer version…")), action: "" };
@@ -99,42 +103,52 @@ function describeOffer(offer: StartupRecoveryOffer): { text: string; action: str
       return {
         text:
           offer.percent === null
-            ? m(msg("Downloading {version}. T3 Code restarts when the download is done."), {
+            ? m(msg("Downloading {version}. {appName} restarts when the download is done."), {
                 version: offer.version,
+                appName,
               })
             : m(
                 msg(
-                  "Downloading {version} ({percent}%). T3 Code restarts when the download is done.",
+                  "Downloading {version} ({percent}%). {appName} restarts when the download is done.",
                 ),
-                { version: offer.version, percent: String(Math.floor(offer.percent / 10) * 10) },
+                {
+                  version: offer.version,
+                  percent: String(Math.floor(offer.percent / 10) * 10),
+                  appName,
+                },
               ),
         action: "",
       };
     case "Reinstall":
-      return {
-        text: m(
-          msg(
-            "Version {version} started correctly on this computer. Download it and install it to go back.",
-          ),
-          { version: offer.version },
-        ),
-        action: actionLink(
-          "reinstall",
-          m(msg("Download {version}"), { version: offer.version }),
-          true,
-        ),
-      };
+      return allowReleaseLinks
+        ? {
+            text: m(
+              msg(
+                "Version {version} started correctly on this computer. Download it and install it to go back.",
+              ),
+              { version: offer.version },
+            ),
+            action: actionLink(
+              "reinstall",
+              m(msg("Download {version}"), { version: offer.version }),
+              true,
+            ),
+          }
+        : { text: "", action: "" };
     case "Releases":
-      return {
-        text: m(msg("Get a different version from the releases page.")),
-        action: actionLink("releases", m(msg("Open releases")), true),
-      };
+      return allowReleaseLinks
+        ? {
+            text: m(msg("Get a different version from the releases page.")),
+            action: actionLink("releases", m(msg("Open releases")), true),
+          }
+        : { text: "", action: "" };
     case "ManagedPolicy":
       return {
         text: m(
           msg(
-            "Your organization's managed policy stopped T3 Code from starting. Send the details below to your IT administrator.",
+            "Your organization's managed policy stopped {appName} from starting. Send the details below to your IT administrator.",
           ),
+          { appName },
         ),
         action: "",
       };
@@ -142,14 +156,16 @@ function describeOffer(offer: StartupRecoveryOffer): { text: string; action: str
 }
 
 function buildStartupRecoveryHtml(input: {
+  readonly appName: string;
+  readonly allowReleaseLinks: boolean;
   readonly appVersion: string;
   readonly failure: BackendStartupFailure;
   readonly offer: StartupRecoveryOffer;
   readonly logDir: string;
 }): string {
-  const offer = describeOffer(input.offer);
+  const offer = describeOffer(input.offer, input.appName, input.allowReleaseLinks);
   const output = input.failure.output.trim();
-  const title = escapeHtml(m(msg("T3 Code could not start")));
+  const title = escapeHtml(m(msg("{appName} could not start"), { appName: input.appName }));
   return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'"><title>${title}</title><style>
 :root{color-scheme:light dark;--bg:#fff;--fg:#111;--muted:#666;--line:#ddd;--code:#f4f4f4}
 @media (prefers-color-scheme:dark){:root{--bg:#000;--fg:#fff;--muted:#999;--line:#333;--code:#111}}
@@ -163,10 +179,10 @@ pre{flex:1;min-height:60px;margin:0;overflow:auto;background:var(--code);border:
 </style></head><body>
 <h1>${title}</h1>
 <p>${escapeHtml(input.failure.reason)}</p>
-<p>${escapeHtml(offer.text)}</p>
+${offer.text ? `<p>${escapeHtml(offer.text)}</p>` : ""}
 <div class="actions">${offer.action}${actionLink("copy", m(msg("Copy details")))}${actionLink("quit", m(msg("Quit", { $context: "button, quits the app" })))}</div>
 <pre>${escapeHtml(output.length > 0 ? output : m(msg("The server wrote no output.")))}</pre>
-<p class="muted">${escapeHtml(m(msg("Version {version}. T3 Code tries again in the background. Logs: {logDir}"), { version: input.appVersion, logDir: input.logDir }))}</p>
+<p class="muted">${escapeHtml(m(msg("Version {version}. {appName} tries again in the background. Logs: {logDir}"), { version: input.appVersion, appName: input.appName, logDir: input.logDir }))}</p>
 </body></html>`;
 }
 
@@ -227,6 +243,8 @@ export const listen: Effect.Effect<
     const failure = yield* Ref.get(failureRef);
     if (Option.isNone(window) || Option.isNone(failure) || window.value.isDestroyed()) return;
     const html = buildStartupRecoveryHtml({
+      appName: environment.displayName,
+      allowReleaseLinks: environment.branding.baseName === "T3 Code",
       appVersion: environment.appVersion,
       failure: failure.value,
       offer: yield* offer,
@@ -267,7 +285,7 @@ export const listen: Effect.Effect<
         const failure = yield* Ref.get(failureRef);
         if (Option.isNone(failure)) return;
         yield* electronShell.copyText(
-          `T3 Code ${environment.appVersion} (${environment.platform} ${environment.processArch}) could not start.\n${failure.value.reason}\n\n${failure.value.output}`,
+          `${environment.displayName} ${environment.appVersion} (${environment.platform} ${environment.processArch}) could not start.\n${failure.value.reason}\n\n${failure.value.output}`,
         );
         return;
       }

@@ -41,8 +41,9 @@ const escapeHtml = (value: string) =>
     }
   });
 
-function helperHtml(permission: MacPermission, icon: string) {
+function helperHtml(permission: MacPermission, icon: string, appName: string) {
   const title = escapeHtml(m(MAC_PERMISSION_SETUP_TITLES[permission]));
+  const safeAppName = escapeHtml(appName);
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'">
 <title>${title}</title><style>
@@ -62,8 +63,8 @@ button:focus-visible { outline: 2px solid #007aff; outline-offset: -2px; }
 img { width: 32px; height: 32px; pointer-events: none; }
 </style></head><body><main id="panel">
 <button id="close" aria-label="${escapeHtml(m(msg("Close permission helper")))}">×</button>
-<header>${escapeHtml(m(msg("↑ Drag T3 Code into the list above")))}</header>
-<button id="app" draggable="true" aria-label="${escapeHtml(m(msg("Drag T3 Code to System Settings, or click to reveal in Finder")))}"><img src="${escapeHtml(icon)}" alt="" draggable="false">T3 Code</button>
+<header>${escapeHtml(m(msg("↑ Drag {appName} into the list above"), { appName }))}</header>
+<button id="app" draggable="true" aria-label="${escapeHtml(m(msg("Drag {appName} to System Settings, or click to reveal in Finder"), { appName }))}"><img src="${escapeHtml(icon)}" alt="" draggable="false">${safeAppName}</button>
 </main></body></html>`;
 }
 
@@ -194,8 +195,9 @@ export class MacPermissionHelper {
     window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
     window.webContents.on("will-navigate", (event) => event.preventDefault());
     try {
+      const appName = Electron.app.getName() || "T3 Code";
       await window.loadURL(
-        `data:text/html;charset=utf-8,${encodeURIComponent(helperHtml(permission, icon.toDataURL()))}`,
+        `data:text/html;charset=utf-8,${encodeURIComponent(helperHtml(permission, icon.toDataURL(), appName))}`,
       );
       if (!window.isDestroyed()) {
         stopTracking = watchMacSettingsWindow(

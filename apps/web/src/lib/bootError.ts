@@ -263,6 +263,15 @@ export function showBootError(error: unknown) {
   if (!bootShell) return;
 
   const bridge = window.desktopBridge;
+  const brandingBaseName = (() => {
+    try {
+      return bridge?.getAppBranding?.()?.baseName?.trim() || null;
+    } catch {
+      return null;
+    }
+  })();
+  const isPersonalBuild = brandingBaseName !== null && brandingBaseName !== "T3 Code";
+  const appName = brandingBaseName ?? "T3 Code";
   const environment = readEnvironment(bridge);
   const offline = !bridge && navigator.onLine === false;
 
@@ -277,7 +286,7 @@ export function showBootError(error: unknown) {
   };
 
   const message = element("div", {}, [
-    element("h1", { textContent: "T3 Code failed to start" }),
+    element("h1", { textContent: `${appName} failed to start` }),
     element("p", {
       textContent: offline
         ? "This browser appears to be offline. Check the connection, then reload."
@@ -362,7 +371,7 @@ export function showBootError(error: unknown) {
 
   const more = element("details", { open: isRepeatFailure(Date.now()) }, [
     element("summary", { textContent: "More options if it keeps failing" }),
-    ...(bridge
+    ...(bridge && !isPersonalBuild
       ? [
           link(
             nightly ? `${DOWNLOAD_URL}?channel=nightly` : DOWNLOAD_URL,
@@ -372,13 +381,17 @@ export function showBootError(error: unknown) {
           ),
         ]
       : []),
-    element("div", {}, [
-      element("p", {
-        textContent:
-          "Run this on the computer that runs T3 Code. Your agent can check the local logs and help you file a bug report.",
-      }),
-      element("div", { id: "boot-error-command" }, [command, copyCommand]),
-    ]),
+    ...(!isPersonalBuild
+      ? [
+          element("div", {}, [
+            element("p", {
+              textContent:
+                "Run this on the computer that runs T3 Code. Your agent can check the local logs and help you file a bug report.",
+            }),
+            element("div", { id: "boot-error-command" }, [command, copyCommand]),
+          ]),
+        ]
+      : []),
     element("div", {}, [
       details,
       element("p", {
@@ -386,7 +399,7 @@ export function showBootError(error: unknown) {
       }),
       element("div", { id: "boot-error-report" }, [
         copyDetails,
-        link(issue.href, "File a bug report on GitHub"),
+        ...(!isPersonalBuild ? [link(issue.href, "File a bug report on GitHub")] : []),
       ]),
     ]),
   ]);

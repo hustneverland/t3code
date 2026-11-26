@@ -12,6 +12,7 @@ import { useState } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { APP_DISPLAY_NAME, IS_XINGYE_BRAND } from "../../components/brandAssets";
 import { SymbolView } from "../../components/ui/AppSymbol";
 import { AppText as Text } from "../../components/ui/AppText";
 import { tryCopyTextWithHaptic } from "../../lib/copyTextWithHaptic";
@@ -77,6 +78,7 @@ function useCrashLogState(): CrashLogState {
 
 function appIdentity() {
   return {
+    name: APP_DISPLAY_NAME,
     version: Constants.expoConfig?.version ?? "0.0.0",
     // EAS assigns build numbers remotely, so expo-constants never sees them;
     // only the installed binary knows its own.
@@ -107,8 +109,8 @@ export function SettingsDiagnosticsRouteScreen() {
         contentContainerClassName="gap-6 px-5 pt-4"
         contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 18) + 18 }}
       >
-        {crashReportingAvailable ? <CrashReportsSetting /> : null}
-        {connectionTracesAvailable ? <ConnectionTracesSetting /> : null}
+        {!IS_XINGYE_BRAND && crashReportingAvailable ? <CrashReportsSetting /> : null}
+        {!IS_XINGYE_BRAND && connectionTracesAvailable ? <ConnectionTracesSetting /> : null}
 
         <SettingsSection title={gt("Startup crashes")}>
           {state.status === "loading" ? (
@@ -147,11 +149,18 @@ export function SettingsDiagnosticsRouteScreen() {
             />
           </SettingsSection>
           <Text className="px-2 text-sm leading-normal text-foreground-muted">
-            <T>
-              Paste the report into a GitHub issue. It contains the app version, the JavaScript
-              error message, and the component stack. Error messages can quote values from the app,
-              so read it over before sharing.
-            </T>
+            {IS_XINGYE_BRAND ? (
+              <T>
+                The report contains the app version, the JavaScript error message, and the component
+                stack. Error messages can quote values from the app, so read it over before sharing.
+              </T>
+            ) : (
+              <T>
+                Paste the report into a GitHub issue. It contains the app version, the JavaScript
+                error message, and the component stack. Error messages can quote values from the
+                app, so read it over before sharing.
+              </T>
+            )}
           </Text>
         </View>
       </ScrollView>
