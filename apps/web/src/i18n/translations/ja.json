@@ -3210,7 +3210,10 @@
     {
       "t": "span",
       "i": 2,
-      "c": [" ", "(このページを開いたコンピューター上)"]
+      "c": [
+        " ",
+        "(このページを開いたコンピューター上)"
+      ]
     }
   ],
   "b2d53b4d1d48fbef": [
@@ -3222,7 +3225,10 @@
     {
       "t": "span",
       "i": 2,
-      "c": [" ", "· 実行した人にこのアクセス権が付与されます"]
+      "c": [
+        " ",
+        "· 実行した人にこのアクセス権が付与されます"
+      ]
     }
   ],
   "c54cc9c75db9dc58": "自分で開始したばかりのサインインだけを承認してください。",
@@ -12911,5 +12917,61 @@
   "201490988858b511": "{by} が取り下げ",
   "99451a5d2d40440f": "{by} が取り下げました。",
   "3ee30a50b70fffab": "{by} が取り下げました: {reason}",
-  "92e129bf413a1220": "取り下げ済み"
+  "92e129bf413a1220": "取り下げ済み",
+  "3cb89b2c6f54c6db": "Use {appName} in another app (MCP)",
+  "47f0ebb202d8cff9": "Quote file in chat",
+  "ee8d164144fc4b9d": [
+    "Welcome to ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "42ea3f3ed05b1631": "Quote page in chat",
+  "5a93e46acfd70581": "Quote page in chat",
+  "0890b9070a4612e5": "Unable to quote into chat",
+  "44ca3777a74722b2": "Open a chat first and try again.",
+  "d287fd6dad9c6a3d": "Unable to send to current chat",
+  "5346075cc9954529": "Dismiss quote",
+  "04c4b2f2e3f232ae": "Ask in current chat…",
+  "6452eb662c5a7d23": "Ask in current chat",
+  "a402946cd63020ad": "Insert into composer",
+  "c370f712b6edbbcf": "Send to current chat",
+  "09f0a1bf786a35dd": "Quote to chat",
+  "eb9b1d6fd5b47e9d": "Ask in chat",
+  "098eb00cad4d7ea5": "Continue in current chat…",
+  "55a24641f31c5efd": "Show quick chat bar",
+  "da6aa3bd5c428250": "Attached as context · Click to exclude",
+  "6ab49ff0c062976c": "Context excluded · Click to attach",
+  "0d4bb0076dff66bb": "Continue in current chat",
+  "345dcdc33d8e446e": "Insert reference into composer",
+  "1d82346ecec62389": "Hide quick chat bar",
+  "a1045d15a1a090f9": [
+    "We do not recommend managing multiple ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " accounts in",
+    " ",
+    {
+      "i": 2,
+      "k": "_gt_value_2",
+      "v": "v"
+    },
+    "."
+  ],
+  "697c4f5be1f2fdb8": "Notices for dependencies, assets, and optional tools used by {appName}.",
+  "8d0d31a11ee3bc1f": [
+    "A workflow ties agents, code, schedules and questions to you into one run that survives restarts. Write one under",
+    " ",
+    {
+      "t": "button",
+      "i": 1,
+      "c": "Definitions"
+    },
+    ", or ask an agent to."
+  ]
 }

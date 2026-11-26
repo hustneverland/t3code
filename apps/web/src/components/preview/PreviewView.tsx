@@ -37,6 +37,9 @@ import {
   useThreadRecentHistory,
 } from "~/browserHistoryStore";
 import { type ComposerImageAttachment, useComposerDraftStore } from "~/composerDraftStore";
+import { useComposerHandleContext } from "~/composerHandleContext";
+import { RightPanelQuickChatBar } from "~/components/rightPanel/RightPanelChatAssist";
+import { formatRightPanelQuoteForChat } from "~/components/rightPanel/rightPanelQuote";
 import { capturePreviewAnnotationScreenshot } from "~/lib/previewAnnotation";
 import { readComposerImageBytes } from "../chat/composerAttachmentFiles";
 import { ensureLocalApi } from "~/localApi";
@@ -182,6 +185,7 @@ export function PreviewView({
 }: Props) {
   const gt = useGT();
   const messages = useMessages();
+  const composerRef = useComposerHandleContext();
   const urlInputRef = useRef<HTMLInputElement | null>(null);
   const [find, setFind] = useState<{ tabId: string; requestId: number } | null>(null);
   const [pickActive, setPickActive] = useState(false);
@@ -258,6 +262,7 @@ export function PreviewView({
       : undefined;
   const navStatus = desktopNavStatus ?? snapshot?.navStatus ?? { _tag: "Idle" as const };
   const url = navStatus._tag === "Idle" ? "" : navStatus.url;
+  const pageTitle = navStatus._tag === "Idle" ? "" : navStatus.title;
   const loading = desktopOverlay?.loading ?? navStatus._tag === "Loading";
   const canGoBack = desktopOverlay?.canGoBack ?? snapshot?.canGoBack ?? false;
   const canGoForward = desktopOverlay?.canGoForward ?? snapshot?.canGoForward ?? false;
@@ -1019,6 +1024,35 @@ export function PreviewView({
         onStopLoading={handleStopLoading}
         onSubmit={(next) => void handleSubmitUrl(next)}
         onOpenInBrowser={tabId ? handleOpenInBrowser : undefined}
+        onQuotePage={
+          composerRef && tabId && !showEmptyState && url
+            ? () => {
+                const composer = composerRef.current;
+                if (!composer) {
+                  toastManager.add({
+                    type: "error",
+                    title: gt("Unable to quote into chat"),
+                    description: gt("Open a chat first and try again."),
+                  });
+                  return;
+                }
+                const payload = formatRightPanelQuoteForChat({
+                  source: { kind: "web", url, title: pageTitle },
+                });
+                const inserted = composer.insertTextAtEnd(payload, { ensureLeadingBoundary: true });
+                if (!inserted) {
+                  toastManager.add({
+                    type: "error",
+                    title: gt("Unable to quote into chat"),
+                    description: gt("The composer is busy; try again once it is ready."),
+                  });
+                  return;
+                }
+                composer.focusAtEnd();
+              }
+            : undefined
+        }
+        quotePageDisabled={!url || isUnreachable}
         onCapture={previewBridge && tabId && !isServerTab ? handleCapture : undefined}
         captureDisabled={!desktopOverlay || isUnreachable}
         recording={recordingRuntimeTabId !== null}
@@ -1199,6 +1233,9 @@ export function PreviewView({
           </div>
         ) : null}
       </div>
+      {tabId && url && !showEmptyState ? (
+        <RightPanelQuickChatBar source={{ kind: "web", url, title: pageTitle }} />
+      ) : null}
     </div>
   );
 }

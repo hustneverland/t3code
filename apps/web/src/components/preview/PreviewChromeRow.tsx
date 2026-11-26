@@ -6,6 +6,7 @@ import {
   ExternalLink,
   MousePointerClick,
   PictureInPicture2,
+  QuoteIcon,
 } from "lucide-react";
 import {
   type FormEvent,
@@ -36,6 +37,8 @@ interface Props {
   onStopLoading: () => void;
   onSubmit: (url: string) => void;
   onOpenInBrowser?: (() => void) | undefined;
+  onQuotePage?: (() => void) | undefined;
+  quotePageDisabled?: boolean | undefined;
   onCapture?: ((record: boolean) => void) | undefined;
   captureDisabled?: boolean | undefined;
   recording?: boolean | undefined;
@@ -66,6 +69,8 @@ export function PreviewChromeRow({
   onStopLoading,
   onSubmit,
   onOpenInBrowser,
+  onQuotePage,
+  quotePageDisabled,
   onCapture,
   captureDisabled,
   recording,
@@ -226,6 +231,27 @@ export function PreviewChromeRow({
           ) : null}
         </InputGroup>
 
+        {onQuotePage ? (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={onQuotePage}
+                  disabled={quotePageDisabled}
+                  aria-label={gt("Quote page in chat")}
+                  type="button"
+                />
+              }
+            >
+              <QuoteIcon />
+            </TooltipTrigger>
+            <TooltipPopup>
+              <T>Quote page in chat</T>
+            </TooltipPopup>
+          </Tooltip>
+        ) : null}
         {onPickElement ? (
           <Tooltip>
             <TooltipTrigger

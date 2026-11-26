@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   htmlRenderFileName,
   injectHtmlRenderBootstrap,
+  readFilePreviewSelection,
   readHtmlRenderImageRequest,
   readHtmlRenderLinkRequest,
 } from "./htmlRender.ts";
@@ -207,5 +208,33 @@ describe("htmlRenderFromToolItem", () => {
     ] as const) {
       expect(htmlRenderFromToolItem({ toolName, output })).toEqual(reference);
     }
+  });
+});
+
+describe("readFilePreviewSelection", () => {
+  it("parses valid selection notifications and rejects malformed payloads", () => {
+    expect(
+      readFilePreviewSelection({
+        jsonrpc: "2.0",
+        method: "t3/notifications/file-preview-selection",
+        params: { text: "  hello world  ", x: 10, y: 20, width: 100, height: 18 },
+      }),
+    ).toEqual({ text: "hello world", x: 10, y: 20, width: 100, height: 18 });
+
+    expect(
+      readFilePreviewSelection({
+        jsonrpc: "2.0",
+        method: "t3/notifications/file-preview-selection",
+        params: { text: "", x: 0, y: 0, width: 0, height: 0 },
+      }),
+    ).toEqual({ text: "", x: 0, y: 0, width: 0, height: 0 });
+
+    expect(
+      readFilePreviewSelection({
+        jsonrpc: "2.0",
+        method: "t3/notifications/file-preview-selection",
+        params: { text: "hi", x: Number.NaN, y: 0, width: 10, height: 10 },
+      }),
+    ).toBeUndefined();
   });
 });

@@ -484,18 +484,29 @@ export function injectHtmlRenderBootstrap(html: string): string {
 const FILE_PREVIEW_SCROLL_METHOD = "t3/notifications/file-preview-scroll";
 const FILE_PREVIEW_RESTORE_SCROLL_METHOD = "t3/file-preview/restore-scroll";
 const FILE_PREVIEW_SCROLL_RESTORED_METHOD = "t3/notifications/file-preview-scroll-restored";
+const FILE_PREVIEW_SELECTION_METHOD = "t3/notifications/file-preview-selection";
+const FILE_PREVIEW_SELECTION_MAX_CHARS = 4_000;
 
 export interface FilePreviewScroll {
   readonly x: number;
   readonly y: number;
 }
 
+export interface FilePreviewSelection {
+  readonly text: string;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
 /**
  * Appended after a served workspace page so it lands at the end of the body without changing
  * the doctype. A preview frame is an opaque origin, so only the page can report and restore its
- * scroll position across the reload that follows each workspace change.
+ * scroll position across the reload that follows each workspace change, and report text selections
+ * for the host's quote-to-chat toolbar.
  */
-export const FILE_PREVIEW_SCROLL_SCRIPT = `<script>(function(){var p=window.parent,f=0;if(p===window)return;addEventListener("scroll",function(){if(!f)f=requestAnimationFrame(function(){f=0;p.postMessage({jsonrpc:"2.0",method:${JSON.stringify(FILE_PREVIEW_SCROLL_METHOD)},params:{x:scrollX,y:scrollY}},"*");});},{passive:true});addEventListener("message",function(e){var d=e.data,q=d&&d.params;if(e.source!==p||!d||d.jsonrpc!=="2.0"||d.method!==${JSON.stringify(FILE_PREVIEW_RESTORE_SCROLL_METHOD)}||!q||typeof q.x!=="number"||typeof q.y!=="number")return;scrollTo({left:q.x,top:q.y,behavior:"instant"});p.postMessage({jsonrpc:"2.0",method:${JSON.stringify(FILE_PREVIEW_SCROLL_RESTORED_METHOD)}},"*");});})();</script>`;
+export const FILE_PREVIEW_SCROLL_SCRIPT = `<script>(function(){var p=window.parent,f=0,st=0,hadSel=false;if(p===window)return;function emitSel(){var s=getSelection(),t=s&&!s.isCollapsed?s.toString().trim():"";if(!t){if(hadSel){hadSel=false;p.postMessage({jsonrpc:"2.0",method:${JSON.stringify(FILE_PREVIEW_SELECTION_METHOD)},params:{text:"",x:0,y:0,width:0,height:0}},"*");}return;}var r=s.rangeCount?s.getRangeAt(0).getBoundingClientRect():null;if(!r||(r.width===0&&r.height===0)){var cs=s.rangeCount?s.getRangeAt(0).getClientRects():null;r=cs&&cs.length?cs[0]:null;}if(!r)return;hadSel=true;p.postMessage({jsonrpc:"2.0",method:${JSON.stringify(FILE_PREVIEW_SELECTION_METHOD)},params:{text:t.slice(0,${FILE_PREVIEW_SELECTION_MAX_CHARS}),x:r.left,y:r.top,width:r.width,height:r.height}},"*");}function schedSel(){clearTimeout(st);st=setTimeout(emitSel,40);}addEventListener("scroll",function(){if(!f)f=requestAnimationFrame(function(){f=0;p.postMessage({jsonrpc:"2.0",method:${JSON.stringify(FILE_PREVIEW_SCROLL_METHOD)},params:{x:scrollX,y:scrollY}},"*");if(hadSel)emitSel();});},{passive:true});addEventListener("mouseup",schedSel,{passive:true});addEventListener("keyup",schedSel,{passive:true});document.addEventListener("selectionchange",schedSel,{passive:true});addEventListener("message",function(e){var d=e.data,q=d&&d.params;if(e.source!==p||!d||d.jsonrpc!=="2.0"||d.method!==${JSON.stringify(FILE_PREVIEW_RESTORE_SCROLL_METHOD)}||!q||typeof q.x!=="number"||typeof q.y!=="number")return;scrollTo({left:q.x,top:q.y,behavior:"instant"});p.postMessage({jsonrpc:"2.0",method:${JSON.stringify(FILE_PREVIEW_SCROLL_RESTORED_METHOD)}},"*");});})();</script>`;
 
 export function readFilePreviewScroll(data: unknown): FilePreviewScroll | undefined {
   if (typeof data !== "object" || data === null) return undefined;
@@ -506,6 +517,34 @@ export function readFilePreviewScroll(data: unknown): FilePreviewScroll | undefi
   return typeof x === "number" && Number.isFinite(x) && typeof y === "number" && Number.isFinite(y)
     ? { x, y }
     : undefined;
+}
+
+export function readFilePreviewSelection(data: unknown): FilePreviewSelection | undefined {
+  if (typeof data !== "object" || data === null) return undefined;
+  const { jsonrpc, method, params } = data as Record<string, unknown>;
+  if (jsonrpc !== "2.0" || method !== FILE_PREVIEW_SELECTION_METHOD) return undefined;
+  if (typeof params !== "object" || params === null) return undefined;
+  const { text, x, y, width, height } = params as Record<string, unknown>;
+  if (
+    typeof text !== "string" ||
+    typeof x !== "number" ||
+    !Number.isFinite(x) ||
+    typeof y !== "number" ||
+    !Number.isFinite(y) ||
+    typeof width !== "number" ||
+    !Number.isFinite(width) ||
+    typeof height !== "number" ||
+    !Number.isFinite(height)
+  ) {
+    return undefined;
+  }
+  return {
+    text: text.trim().slice(0, FILE_PREVIEW_SELECTION_MAX_CHARS),
+    x,
+    y,
+    width: Math.max(0, width),
+    height: Math.max(0, height),
+  };
 }
 
 export function isFilePreviewScrollRestored(data: unknown): boolean {

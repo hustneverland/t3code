@@ -8,9 +8,11 @@ import {
 } from "@t3tools/contracts";
 import {
   type FilePreviewScroll,
+  type FilePreviewSelection,
   filePreviewRestoreScrollMessage,
   isFilePreviewScrollRestored,
   readFilePreviewScroll,
+  readFilePreviewSelection,
   type HtmlRenderShortcut,
   htmlRenderShortcutsMessage,
   HTML_RENDER_CONTAIN_SCROLL_FRAGMENT,
@@ -163,6 +165,8 @@ export function BrowserDocumentFrame(props: {
   readonly documentId?: string | undefined;
   /** Toolbar actions for the in-app PDF viewer; Chromium's own viewer brings its own. */
   readonly pdfActions?: ReactNode;
+  /** Reports text selections made inside a sandboxed workspace HTML preview frame. */
+  readonly onSelectionChange?: ((selection: FilePreviewSelection | null) => void) | undefined;
 }) {
   const key = props.documentKey ?? props.src;
   return props.pdf ? (
@@ -188,6 +192,7 @@ export function BrowserDocumentFrame(props: {
       documentKey={key}
       src={props.src}
       title={props.title}
+      onSelectionChange={props.onSelectionChange}
     />
   );
 }
@@ -218,6 +223,7 @@ function FileDocument(props: {
   readonly documentKey: string;
   readonly src: string;
   readonly title: string;
+  readonly onSelectionChange?: ((selection: FilePreviewSelection | null) => void) | undefined;
 }) {
   const [frames, setFrames] = useState<FileDocumentFrames>(() => ({
     shown: { key: props.documentKey, src: props.src },
@@ -243,7 +249,27 @@ function FileDocument(props: {
     const position = readFilePreviewScroll(event.data);
     if (position !== undefined) {
       if (event.source === shownFrame.current?.contentWindow) scroll.current = position;
-    } else if (
+      return;
+    }
+    const selection = readFilePreviewSelection(event.data);
+    if (selection !== undefined) {
+      const frame = shownFrame.current;
+      if (frame === null || event.source !== frame.contentWindow) return;
+      if (selection.text.length === 0) {
+        props.onSelectionChange?.(null);
+        return;
+      }
+      const rect = frame.getBoundingClientRect();
+      props.onSelectionChange?.({
+        text: selection.text,
+        x: rect.left + selection.x,
+        y: rect.top + selection.y,
+        width: selection.width,
+        height: selection.height,
+      });
+      return;
+    }
+    if (
       next !== null &&
       event.source === nextFrame.current?.contentWindow &&
       isFilePreviewScrollRestored(event.data)
@@ -251,11 +277,15 @@ function FileDocument(props: {
       reveal(next);
     }
   });
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- listens for the frames' scroll reports
+  const clearSelection = useEffectEvent(() => props.onSelectionChange?.(null));
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- listens for the frames' scroll and selection reports
   useEffect(() => {
     const onMessage = (event: MessageEvent) => onFrameMessage(event);
     window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
+    return () => {
+      window.removeEventListener("message", onMessage);
+      clearSelection();
+    };
   }, []);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- swaps in a revision whose load event never arrives
   useEffect(() => {

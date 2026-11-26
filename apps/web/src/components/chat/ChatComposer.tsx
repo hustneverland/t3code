@@ -324,6 +324,7 @@ export interface ChatComposerHandle {
     text: string,
     options?: { ensureLeadingBoundary?: boolean; clipboardData?: DataTransfer },
   ) => boolean;
+  submitTextAtEnd: (text: string, options?: { ensureLeadingBoundary?: boolean }) => boolean;
   pasteTextAtEnd: (text: string, options?: { bypassAutoAttachment?: boolean }) => boolean;
   citeAssistantText: (
     citation: AssistantCitation,
@@ -2945,6 +2946,17 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   };
   const insertComposerTextAtEndStable = useStableCallback(insertComposerTextAtEnd);
 
+  const submitComposerTextAtEnd: ChatComposerHandle["submitTextAtEnd"] = (text, options) => {
+    const trimmed = text.trim();
+    if (trimmed.length === 0) return false;
+    const prefix =
+      options?.ensureLeadingBoundary && promptRef.current.trim().length > 0 ? "\n\n" : "";
+    const inserted = insertComposerText(`${prefix}${trimmed}`, "end");
+    if (!inserted) return false;
+    return submitCitationAndSendStable();
+  };
+  const submitComposerTextAtEndStable = useStableCallback(submitComposerTextAtEnd);
+
   const insertComposerFolders = async (
     folders: File[],
     target: FolderDropTarget,
@@ -3321,6 +3333,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         countPreparingComposerImages(attachmentTargetKey) > 0 ||
         pendingDraftWork.has(attachmentTargetKey),
       insertTextAtEnd: insertComposerTextAtEndStable,
+      submitTextAtEnd: submitComposerTextAtEndStable,
       pasteTextAtEnd: (text: string, options) => {
         if (speechInput.freezesEditor) return false;
         const shortcutArmed = consumePasteAsTextShortcut(pasteAsTextShortcutUntilRef);
