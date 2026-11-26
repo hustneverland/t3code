@@ -11,13 +11,13 @@ import { AutoSettleDaysField } from "./components/AutoSettleDaysField";
 import { ScreenScrollView as ScrollView } from "../../components/ui/ScreenScrollView";
 import { useAtomValue } from "@effect/atom-react";
 import { AsyncResult } from "effect/reactivity";
-import type { ComponentProps } from "react";
+import { useState, type ComponentProps } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { DEFAULT_SERVER_SETTINGS } from "@t3tools/contracts";
 import { supportsSharedSettingsSync } from "@t3tools/client-runtime/state/shared-settings";
-import { AppText as Text } from "../../components/ui/AppText";
+import { AppText as Text, AppTextInput } from "../../components/ui/AppText";
 import { useEnvironments } from "../../state/environments";
 import { mobilePreferencesAtom, saveMobilePreferences } from "../../state/preferences";
 import { serverEnvironment } from "../../state/server";
@@ -47,6 +47,8 @@ export function SettingsLabsRouteScreen() {
         contentContainerClassName="gap-6 px-5 pt-4"
         contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 18) + 18 }}
       >
+        <SuggestNextPromptSection />
+        <GuestLinksSection />
         <MachineBetaSection
           title={gt("Linked environments")}
           icon="link"
@@ -344,6 +346,159 @@ function AgentFeedbackSection() {
           turns the report is about.
         </T>
       </Text>
+    </View>
+  );
+}
+
+/** Toggle Claude & Codex predicted next-prompt suggestions per connected machine. */
+function SuggestNextPromptSection() {
+  const gt = useGT();
+  const { environments } = useEnvironments();
+  const connected = environments.filter(
+    (environment) => environment.connection.phase === "connected" && environment.serverConfig,
+  );
+  const writable = useEnvironmentsWithScope(connected, AuthSettingsWriteScope);
+  const updateSettings = useAtomCommand(serverEnvironment.updateSettings, {
+    label: "promptSuggestionsEnabled beta update",
+    reportFailure: true,
+  });
+  if (connected.length === 0) return null;
+  return (
+    <View className="gap-3">
+      <SettingsSection title={gt("Beta: {feature}", { feature: gt("Suggest next prompt") })}>
+        {connected.map((environment) => {
+          const policy = environment.serverConfig?.managedPolicy;
+          const managed = isManagedSettingPath(policy, "promptSuggestionsEnabled");
+          return (
+            <SettingsSwitchRow
+              key={environment.environmentId}
+              icon="bubble.left"
+              label={environment.label}
+              {...(managed
+                ? {
+                    subtitle: gt("Managed by {organization}.", {
+                      organization: policy?.organization,
+                    }),
+                  }
+                : {})}
+              value={environment.serverConfig?.settings.promptSuggestionsEnabled === true}
+              disabled={managed || !writable.has(environment.environmentId)}
+              onValueChange={(value) =>
+                void updateSettings({
+                  environmentId: environment.environmentId,
+                  input: { patch: { promptSuggestionsEnabled: value } },
+                })
+              }
+            />
+          );
+        })}
+      </SettingsSection>
+      <Text className="px-2 text-sm text-foreground-muted">
+        {gt(
+          "Show a predicted next message above the empty composer after a Claude or Codex turn. Tap to fill or send.",
+        )}
+      </Text>
+    </View>
+  );
+}
+
+/** Toggle Guest links and configure a self-hosted public HTTPS URL per connected machine. */
+function GuestLinksSection() {
+  const gt = useGT();
+  const { environments } = useEnvironments();
+  const connected = environments.filter(
+    (environment) => environment.connection.phase === "connected" && environment.serverConfig,
+  );
+  const writable = useEnvironmentsWithScope(connected, AuthSettingsWriteScope);
+  const updateSettings = useAtomCommand(serverEnvironment.updateSettings, {
+    label: "guestSharing beta update",
+    reportFailure: true,
+  });
+  if (connected.length === 0) return null;
+  return (
+    <View className="gap-3">
+      <SettingsSection title={gt("Beta: {feature}", { feature: gt("Guest links") })}>
+        {connected.map((environment, index) => {
+          const policy = environment.serverConfig?.managedPolicy;
+          const managed = isManagedSettingPath(policy, "guestSharingEnabled");
+          const canWrite = !managed && writable.has(environment.environmentId);
+          return (
+            <View key={environment.environmentId}>
+              {index > 0 ? <View className="ml-4 border-t border-border-subtle" /> : null}
+              <SettingsSwitchRow
+                icon="person.2"
+                label={environment.label}
+                {...(managed
+                  ? {
+                      subtitle: gt("Managed by {organization}.", {
+                        organization: policy?.organization,
+                      }),
+                    }
+                  : {})}
+                value={environment.serverConfig?.settings.guestSharingEnabled === true}
+                disabled={!canWrite}
+                onValueChange={(value) =>
+                  void updateSettings({
+                    environmentId: environment.environmentId,
+                    input: { patch: { guestSharingEnabled: value } },
+                  })
+                }
+              />
+              <GuestSharePublicUrlInputRow
+                value={environment.serverConfig?.settings.guestSharePublicUrl ?? ""}
+                disabled={!canWrite}
+                onCommit={(url) =>
+                  void updateSettings({
+                    environmentId: environment.environmentId,
+                    input: { patch: { guestSharePublicUrl: url } },
+                  })
+                }
+              />
+            </View>
+          );
+        })}
+      </SettingsSection>
+      <Text className="px-2 text-sm text-foreground-muted">
+        {gt(
+          "Share a thread with a guest who watches it live in a browser and sends messages you approve. Enter your server's public HTTPS URL if you don't use T3 Connect.",
+        )}
+      </Text>
+    </View>
+  );
+}
+
+function GuestSharePublicUrlInputRow(props: {
+  readonly value: string;
+  readonly disabled: boolean;
+  readonly onCommit: (value: string) => void;
+}) {
+  const gt = useGT();
+  const [draft, setDraft] = useState<string | null>(null);
+  const displayValue = draft ?? props.value;
+  const commit = () => {
+    if (draft === null) return;
+    const trimmed = draft.trim();
+    setDraft(null);
+    if (trimmed === props.value) return;
+    props.onCommit(trimmed);
+  };
+  return (
+    <View className="border-t border-border-subtle px-4 py-2.5">
+      <Text className="mb-1 text-xs text-foreground-muted">{gt("Public URL (self-hosted)")}</Text>
+      <AppTextInput
+        value={displayValue}
+        editable={!props.disabled}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="url"
+        returnKeyType="done"
+        placeholder="https://your-host.example:18443"
+        accessibilityLabel={gt("Public URL for self-hosted guest links")}
+        onChangeText={setDraft}
+        onEndEditing={commit}
+        onSubmitEditing={commit}
+        className="min-h-[36px] rounded-lg border border-border-subtle bg-screen px-3 py-1.5 text-sm"
+      />
     </View>
   );
 }

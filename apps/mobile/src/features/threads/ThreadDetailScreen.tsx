@@ -187,6 +187,7 @@ import { ComposerErrorNotice } from "./ComposerErrorNotice";
 import { ManagedRuntimeModeNotice } from "./ManagedRuntimeModeNotice";
 import { FreshSessionNotice } from "./FreshSessionNotice";
 import { ComposerFeedback } from "./ComposerFeedback";
+import { ComposerPromptSuggestionBar } from "./ComposerPromptSuggestionBar";
 import { ComposerUsageLimits } from "./ComposerUsageLimits";
 import { PendingUserInputCard } from "./PendingUserInputCard";
 import { ProviderSubagentBar } from "./ProviderSubagentBar";
@@ -1929,6 +1930,38 @@ function ThreadDetailBody(
                     </View>
                   ) : (
                     <>
+                      <ComposerPromptSuggestionBar
+                        environmentId={props.environmentId}
+                        threadRef={props.selectedThreadDetailRef}
+                        latestRun={props.selectedThread.latestRun}
+                        draftKey={props.composerDraftKey}
+                        enabled={
+                          !props.draftMode &&
+                          props.canOperateThread &&
+                          !props.activeThreadBusy &&
+                          props.queuedRunEdit === null &&
+                          props.activePendingApproval === null &&
+                          props.activePendingUserInput === null &&
+                          props.serverConfig?.settings.promptSuggestionsEnabled === true
+                        }
+                        contentMaxWidth={contentMaxWidth}
+                        onFillSuggestion={(text) => {
+                          props.onChangeDraftMessage(text);
+                          requestAnimationFrame(() => {
+                            composerEditorRef.current?.focus();
+                            composerEditorRef.current?.setSelection({
+                              start: text.length,
+                              end: text.length,
+                            });
+                          });
+                        }}
+                        onSendSuggestion={(text) => {
+                          props.onChangeDraftMessage(text);
+                          requestAnimationFrame(() => {
+                            void handleSendMessage();
+                          });
+                        }}
+                      />
                       <ThreadComposer
                         isDraft={Boolean(props.draftMode)}
                         canOperateThread={props.canOperateThread}

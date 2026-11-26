@@ -53,21 +53,6 @@ function parseArgs(argv) {
   return args;
 }
 
-function loadEnvExample(envFile) {
-  const result = {};
-  if (!NodeFS.existsSync(envFile)) return result;
-  for (const rawLine of NodeFS.readFileSync(envFile, "utf8").split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith("#")) continue;
-    const eq = line.indexOf("=");
-    if (eq <= 0) continue;
-    const key = line.slice(0, eq).trim();
-    const val = line.slice(eq + 1).trim();
-    if (key && val) result[key] = val;
-  }
-  return result;
-}
-
 function sha256Base64Url(filePath) {
   return NodeCrypto.createHash("sha256").update(NodeFS.readFileSync(filePath)).digest("base64url");
 }
@@ -78,10 +63,13 @@ function md5Hex(filePath) {
 
 function main() {
   const { baseUrl, outDir } = parseArgs(process.argv.slice(2));
-  const publicEnv = loadEnvExample(NodePath.join(repoRoot, ".env.example"));
   const buildEnv = {
-    ...publicEnv,
     ...process.env,
+    // Keep personal OTA builds free of T3 Connect / Clerk account sign-in.
+    T3CODE_CLERK_PUBLISHABLE_KEY: "",
+    T3CODE_CLERK_JWT_TEMPLATE: "",
+    T3CODE_CLERK_CLI_OAUTH_CLIENT_ID: "",
+    T3CODE_RELAY_URL: "",
     APP_VARIANT: "production",
     T3CODE_ANDROID_PACKAGE: "io.github.hustneverland.t3code",
     T3CODE_MOBILE_VERSION: "2.3.1",

@@ -556,7 +556,9 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: msg("Guest links"),
     to: "/settings/labs",
     scope: "environment",
-    searchTerms: [msg("beta share guest invite link teammate watch t3 connect tunnel")],
+    searchTerms: [
+      msg("beta share guest invite link teammate watch t3 connect tunnel public url self-hosted"),
+    ],
   },
   {
     id: "linked-environments-beta",

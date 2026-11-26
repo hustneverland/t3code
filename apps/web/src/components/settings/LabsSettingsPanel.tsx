@@ -9,9 +9,11 @@ import {
 } from "@t3tools/contracts";
 import { T, useGT, useMessages } from "gt-react";
 
+import { useState } from "react";
 import { hasCloudPublicConfig } from "~/cloud/publicConfig";
 import { useT3ConnectAuthPrompt } from "../clerk/useT3ConnectAuthPrompt";
 import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 import { NumberField, NumberFieldGroup, NumberFieldInput } from "../ui/number-field";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Switch } from "../ui/switch";
@@ -144,6 +146,7 @@ function GuestLinksRow() {
       : [primaryPolicy],
     (policy) => managedCapabilityDenial(policy, "connect", messages),
   );
+  const cloudConfigured = hasCloudPublicConfig();
   return (
     <SettingsRow
       serverScoped
@@ -152,14 +155,19 @@ function GuestLinksRow() {
       // Turning guest links off still works without T3 Connect.
       managed={settings.guestSharingEnabled ? undefined : connectDenial}
       description={
-        <T>
-          Share a thread with a guest who watches it live in a browser and sends messages you
-          approve. Needs T3 Connect: sign in and link this machine in{" "}
-          <Link to="/settings/access" className="underline underline-offset-2">
-            Sharing & access
-          </Link>
-          . Turning it off stops every guest link.
-        </T>
+        cloudConfigured ? (
+          <T>
+            Let a guest watch a thread live and propose messages you approve. Uses{" "}
+            <Link to="/settings/access" className="underline underline-offset-2">
+              T3 Connect
+            </Link>{" "}
+            or the public URL below.
+          </T>
+        ) : (
+          gt(
+            "Let a guest watch a thread live in a browser and propose messages you approve. Set your server's public HTTPS URL below.",
+          )
+        )
       }
       control={
         <ScopedSwitch
@@ -168,6 +176,61 @@ function GuestLinksRow() {
           onCheckedChange={(checked) => updateSettings({ guestSharingEnabled: Boolean(checked) })}
           aria-label={gt("Guest links")}
         />
+      }
+    >
+      {settings.guestSharingEnabled || !cloudConfigured ? (
+        <div className="mt-2 mb-2 border-l-2 border-border/60 ps-3">
+          <GuestSharePublicUrlRow />
+        </div>
+      ) : null}
+    </SettingsRow>
+  );
+}
+
+function GuestSharePublicUrlRow() {
+  const settings = useScopedSettings();
+  const updateSettings = useUpdateScopedSettings();
+  const mixed = useScopedSettingsMixed(["guestSharePublicUrl"]);
+  const gt = useGT();
+  const committedValue = mixed ? "" : settings.guestSharePublicUrl;
+  const [draft, setDraft] = useState<string | null>(null);
+  const displayValue = draft ?? committedValue;
+  const commit = () => {
+    if (draft === null) return;
+    const trimmed = draft.trim();
+    setDraft(null);
+    if (!mixed && trimmed === settings.guestSharePublicUrl) return;
+    updateSettings({ guestSharePublicUrl: trimmed });
+  };
+  return (
+    <SettingsRow
+      serverScoped
+      title={gt("Public URL (self-hosted)")}
+      settingKeys={["guestSharePublicUrl"]}
+      className="px-0 py-2 sm:px-0"
+      description={gt(
+        "Optional public HTTPS URL for guest links when not using T3 Connect, e.g. https://t3.example.com:18443.",
+      )}
+      control={
+        <div className="w-64 max-w-full">
+          <Input
+            size="sm"
+            type="url"
+            value={displayValue}
+            placeholder={mixed ? gt("Mixed") : "https://your-host.example:18443"}
+            aria-label={gt("Public URL for self-hosted guest links")}
+            onChange={(event) => setDraft(event.target.value)}
+            onBlur={commit}
+            onKeyDown={(event) => {
+              if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+              if (event.key === "Enter") {
+                event.preventDefault();
+                commit();
+                event.currentTarget.blur();
+              }
+            }}
+          />
+        </div>
       }
     />
   );

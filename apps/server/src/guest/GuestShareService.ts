@@ -227,6 +227,35 @@ const rowWithoutFileText = <Row extends { readonly item: OrchestrationV2TurnItem
   row: Row,
 ): Row => ({ ...row, item: withoutFileText(row.item) });
 
+export interface GuestShareEndpoint {
+  readonly origin: string;
+  readonly host: string;
+}
+
+/**
+ * Parses a self-hosted public URL (or bare host[:port]) for guest links.
+ * Bare hostnames default to HTTPS so links match reverse proxies like Caddy.
+ */
+export function parseGuestSharePublicUrl(
+  raw: string | null | undefined,
+): GuestShareEndpoint | null {
+  const trimmed = raw?.trim() ?? "";
+  if (trimmed.length === 0) return null;
+  const candidate = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const parsed = new URL(candidate);
+    if (
+      (parsed.protocol !== "https:" && parsed.protocol !== "http:") ||
+      parsed.hostname.length === 0
+    ) {
+      return null;
+    }
+    return { origin: parsed.origin, host: parsed.host };
+  } catch {
+    return null;
+  }
+}
+
 const make = Effect.gen(function* () {
   const orchestrator = yield* Orchestrator.OrchestratorV2;
   const commandOutputs = yield* CommandOutputHub.CommandOutputHub;
@@ -290,9 +319,19 @@ const make = Effect.gen(function* () {
     return decodeSessionClaims(base64UrlDecodeUtf8(parts.payload));
   });
 
-  const connectHostname = managedEndpoint.inspectConnector.pipe(
-    Effect.map((facts) => facts?.hostname ?? null),
+  const configuredPublicEndpoint = serverSettings.getSettings.pipe(
+    Effect.map((settings) =>
+      parseGuestSharePublicUrl(settings.guestSharePublicUrl || process.env.T3CODE_GUEST_PUBLIC_URL),
+    ),
+    Effect.orElseSucceed(() => parseGuestSharePublicUrl(process.env.T3CODE_GUEST_PUBLIC_URL)),
   );
+  const activeGuestEndpoint = Effect.gen(function* () {
+    const connector = yield* managedEndpoint.inspectConnector;
+    if (connector?.hostname) {
+      return { origin: `https://${connector.hostname}`, host: connector.hostname };
+    }
+    return yield* configuredPublicEndpoint;
+  });
   // A beta: while it is off, no link opens and every guest request is refused.
   const sharingEnabled = serverSettings.getSettings.pipe(
     Effect.map((settings) => settings.guestSharingEnabled),
@@ -339,7 +378,7 @@ const make = Effect.gen(function* () {
       thread.deletedAt !== null ||
       DateTime.toEpochMillis(now) >= Date.parse(share.expiresAt) ||
       (kind === "session" && share.guestName === null) ||
-      (yield* connectHostname) !== share.host
+      (yield* activeGuestEndpoint)?.host !== share.host
     ) {
       return yield* inactive;
     }
@@ -350,8 +389,8 @@ const make = Effect.gen(function* () {
     if (!(yield* sharingEnabled)) {
       return yield* new GuestShareCreateError({ reason: "disabled" });
     }
-    const host = yield* connectHostname;
-    if (host === null) {
+    const endpoint = yield* activeGuestEndpoint;
+    if (endpoint === null) {
       return yield* new GuestShareCreateError({ reason: "connect_unavailable" });
     }
     const shareId = GuestShareId.make(base64UrlEncode(yield* random.randomBytes(SHARE_ID_BYTES)));
@@ -363,7 +402,7 @@ const make = Effect.gen(function* () {
         commandId: yield* commandId("open"),
         threadId: input.threadId,
         shareId,
-        host,
+        host: endpoint.host,
         expiresAt,
       })
       .pipe(Effect.mapError(() => new GuestShareCreateError({ reason: "thread_unavailable" })));
@@ -374,7 +413,7 @@ const make = Effect.gen(function* () {
       return yield* new GuestShareCreateError({ reason: "changed" });
     }
     const credential = yield* signInvite(shareId);
-    return { url: `https://${host}/guest#${credential}`, share: thread.guestShare };
+    return { url: `${endpoint.origin}/guest#${credential}`, share: thread.guestShare };
   });
 
   const redeem = Effect.fn("GuestShareService.redeem")(function* (request: GuestRedeemRequest) {
@@ -619,7 +658,10 @@ const make = Effect.gen(function* () {
       // keeps the guest in. Turning the beta off closes it the same way. Closing and expiry end
       // it above, with `ended`.
       Stream.interruptWhen(
-        Effect.all([connectHostname, sharingEnabled]).pipe(
+        Effect.all([
+          Effect.map(activeGuestEndpoint, (endpoint) => endpoint?.host ?? null),
+          sharingEnabled,
+        ]).pipe(
           Effect.repeat({
             schedule: Schedule.spaced(ACCESS_RECHECK_INTERVAL),
             until: ([host, enabled]) => host !== share.host || !enabled,

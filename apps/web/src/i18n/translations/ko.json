@@ -12970,5 +12970,21 @@
       "c": "Definitions"
     },
     ", or ask an agent to."
-  ]
+  ],
+  "a6228f84d555e456": "Let a guest watch a thread live in a browser and propose messages you approve. Set your server's public HTTPS URL below.",
+  "7048a27b9fe53131": "Public URL (self-hosted)",
+  "957abdd281d7933c": "Optional public HTTPS URL for guest links when not using T3 Connect, e.g. https://t3.example.com:18443.",
+  "759f2c6ffde52e5e": "Public URL for self-hosted guest links",
+  "ea56f604bf9a1f36": [
+    "Let a guest watch a thread live and propose messages you approve. Uses",
+    " ",
+    {
+      "t": "Link",
+      "i": 1,
+      "c": "T3 Connect"
+    },
+    " ",
+    "or the public URL below."
+  ],
+  "45f215fd165e2087": "beta share guest invite link teammate watch t3 connect tunnel public url self-hosted"
 }

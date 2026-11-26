@@ -1471,3 +1471,58 @@ it.effect("keeps a connected guest's images while other shares come and go", () 
     assert.equal((yield* guestShares.media(next.token, shot)).mimeType, "image/png");
   }).pipe(Effect.scoped, Effect.provide(layerTest)),
 );
+
+it("parses self-hosted public URLs for guest links", () => {
+  assert.deepEqual(
+    GuestShareService.parseGuestSharePublicUrl("https://t3-remote.example.com:18443/path"),
+    { origin: "https://t3-remote.example.com:18443", host: "t3-remote.example.com:18443" },
+  );
+  assert.deepEqual(GuestShareService.parseGuestSharePublicUrl("t3-remote.example.com:18443"), {
+    origin: "https://t3-remote.example.com:18443",
+    host: "t3-remote.example.com:18443",
+  });
+  assert.isNull(GuestShareService.parseGuestSharePublicUrl(""));
+  assert.isNull(GuestShareService.parseGuestSharePublicUrl("ftp://example.com"));
+});
+
+it.effect(
+  "creates and redeems a guest link via guestSharePublicUrl when T3 Connect is absent",
+  () =>
+    Effect.gen(function* () {
+      const guestShares = yield* GuestShareService.GuestShareService;
+      const settings = yield* ServerSettings.ServerSettingsService;
+      const orchestrator = yield* Orchestrator.OrchestratorV2;
+      const selfHostedThreadId = ThreadId.make("thread:self-hosted-guest");
+      yield* orchestrator.dispatch({
+        type: "thread.create",
+        commandId: CommandId.make(`create:${selfHostedThreadId}`),
+        threadId: selfHostedThreadId,
+        projectId: ProjectId.make("project:guest-share-service"),
+        title: "Self-hosted guest review",
+        modelSelection: { instanceId, model: "gpt-5.1-codex" },
+        runtimeMode: "full-access",
+        interactionMode: "default",
+        branch: null,
+        worktreePath: null,
+        createdBy: "user",
+        creationSource: "web",
+      });
+      yield* Ref.set(hostname, null);
+      yield* settings.updateSettings({
+        guestSharingEnabled: true,
+        guestSharePublicUrl: "https://t3-remote.example.com:18443",
+      });
+
+      const created = yield* guestShares.create({ threadId: selfHostedThreadId });
+      assert.isTrue(created.url.startsWith("https://t3-remote.example.com:18443/guest#"));
+      assert.equal(created.share.host, "t3-remote.example.com:18443");
+
+      const credential = created.url.slice(created.url.indexOf("#") + 1);
+      const redeemed = yield* guestShares.redeem({ credential, name: "Alex" });
+      assert.equal(redeemed.shareId, created.share.id);
+      yield* guestShares.check(redeemed.token);
+
+      yield* settings.updateSettings({ guestSharePublicUrl: "" });
+      assert.equal((yield* Effect.flip(guestShares.check(redeemed.token))).reason, "inactive");
+    }).pipe(Effect.scoped, Effect.provide(layerTest)),
+);
