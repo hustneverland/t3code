@@ -11,6 +11,7 @@ on:
       - apps/mobile/plugins/**
       - apps/mobile/android/**
       - apps/mobile/assets/**
+      - .github/workflows/personal-android-apk.yml
   workflow_dispatch:
     inputs:
       abi:
@@ -38,7 +39,7 @@ jobs:
     env:
       APP_VARIANT: production
       T3CODE_ANDROID_PACKAGE: io.github.hustneverland.t3code
-      T3CODE_ANDROID_VERSION_CODE: "5"
+      T3CODE_ANDROID_VERSION_CODE: "6"
       T3CODE_MOBILE_VERSION: "2.3.1"
       T3CODE_MOBILE_APP_NAME: 星野
       T3CODE_MOBILE_ICON_PRESET: xingye
@@ -84,9 +85,6 @@ jobs:
           printf 'org.gradle.caching=true\norg.gradle.daemon=false\n' > ~/.gradle/gradle.properties
           ccache --max-size=2G
           ccache --zero-stats
-
-      - name: Enable T3 Connect public config
-        run: cp .env.example .env
 
       - name: Expo prebuild (Android)
         working-directory: apps/mobile

@@ -19,7 +19,6 @@ on:
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
-      - .env.example
       - .github/workflows/personal-macos-desktop.yml
   workflow_dispatch:
     inputs:
@@ -72,9 +71,6 @@ jobs:
           install-args: --filter=t3... --filter=@t3tools/web... --filter=@t3tools/desktop... --filter=@t3tools/scripts...
           # Both architectures install the same packages; one saved store serves both.
           save-pnpm-store: ${{ matrix.arch == 'arm64' }}
-
-      - name: Enable T3 Connect public config
-        run: cp .env.example .env
 
       - name: Align package versions
         run: node scripts/update-release-package-versions.ts "${BUILD_VERSION}"

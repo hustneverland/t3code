@@ -16,7 +16,6 @@ on:
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
-      - .env.example
       - .github/workflows/personal-windows-desktop.yml
   workflow_dispatch:
     inputs:
@@ -60,9 +59,6 @@ jobs:
         uses: ./.github/actions/setup-ci-deps
         with:
           install-args: --filter=t3... --filter=@t3tools/web... --filter=@t3tools/desktop... --filter=@t3tools/scripts...
-
-      - name: Enable T3 Connect public config
-        run: cp .env.example .env
 
       - name: Align package versions
         run: node scripts/update-release-package-versions.ts "${BUILD_VERSION}"
