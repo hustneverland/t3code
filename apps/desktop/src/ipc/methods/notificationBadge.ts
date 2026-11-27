@@ -17,12 +17,21 @@ const NotificationBadge = Schema.Struct({
   ),
 });
 
+interface BadgeAttentionState {
+  lastCount: number;
+  dockBounceId: number | null;
+}
+
 function applyNotificationBadge(
   platform: NodeJS.Platform,
   { count, image }: typeof NotificationBadge.Type,
+  attention: BadgeAttentionState,
 ): void {
   try {
     if (Electron.BrowserWindow.getFocusedWindow()) count = 0;
+    const shouldAlert = count > 0 && count >= attention.lastCount;
+    attention.lastCount = count;
+
     if (platform === "win32") {
       const overlay = count > 0 && image ? Electron.nativeImage.createFromDataURL(image) : null;
       for (const window of Electron.BrowserWindow.getAllWindows()) {
@@ -31,10 +40,23 @@ function applyNotificationBadge(
             overlay?.isEmpty() ? null : overlay,
             count > 0 ? `${count} threads with new notifications` : "",
           );
+          if (count === 0) {
+            window.flashFrame(false);
+          } else if (shouldAlert) {
+            window.flashFrame(true);
+          }
         }
       }
     } else if (platform === "darwin" || platform === "linux") {
       Electron.app.setBadgeCount(count);
+      if (platform === "darwin") {
+        if (count === 0 && attention.dockBounceId !== null) {
+          Electron.app.dock?.cancelBounce(attention.dockBounceId);
+          attention.dockBounceId = null;
+        } else if (shouldAlert) {
+          attention.dockBounceId = Electron.app.dock?.bounce("informational") ?? null;
+        }
+      }
     }
   } catch (error) {
     Effect.runSync(Effect.logWarning("Could not update notification badge", error));
@@ -46,8 +68,9 @@ export const installNotificationBadge = Effect.fn("desktop.ipc.installNotificati
     const ipc = yield* DesktopIpc.DesktopIpc;
     const app = yield* ElectronApp.ElectronApp;
     const platform = yield* HostProcess.Platform;
+    const attention: BadgeAttentionState = { lastCount: 0, dockBounceId: null };
     const clear = () => {
-      applyNotificationBadge(platform, { count: 0, image: null });
+      applyNotificationBadge(platform, { count: 0, image: null }, attention);
       for (const window of Electron.BrowserWindow.getAllWindows()) {
         if (!window.isDestroyed()) window.webContents.send(SET_NOTIFICATION_BADGE_CHANNEL);
       }
@@ -60,7 +83,7 @@ export const installNotificationBadge = Effect.fn("desktop.ipc.installNotificati
         handler: (badge) =>
           Effect.sync(() => {
             if (badge.count > 0 && Electron.BrowserWindow.getFocusedWindow()) clear();
-            else applyNotificationBadge(platform, badge);
+            else applyNotificationBadge(platform, badge, attention);
           }),
       }),
     );
