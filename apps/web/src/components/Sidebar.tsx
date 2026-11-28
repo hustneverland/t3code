@@ -3685,6 +3685,13 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                                 key="pinned-header"
                                 marker="pinned-header"
                                 label={gt("Pinned", { $context: "sidebar section" })}
+                                staticLabel={
+                                  projectFolders === null &&
+                                  workingThreads.length > 0 &&
+                                  pinnedThreads.length > 0
+                                    ? gt("Pinned", { $context: "sidebar section" })
+                                    : undefined
+                                }
                                 visible={from !== null}
                                 isDropTarget={dragTargetSection === "pinned"}
                               />,
@@ -3696,6 +3703,15 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                                 key="pinned-divider"
                                 marker="pinned-divider"
                                 label={gt("Active", { $context: "sidebar section" })}
+                                staticLabel={
+                                  projectFolders === null &&
+                                  workingThreads.length > 0 &&
+                                  activeThreads.length > 0
+                                    ? gt("Chats", {
+                                        $context: "navigation tab, list of chat threads",
+                                      })
+                                    : undefined
+                                }
                                 visible={from !== null}
                                 isDropTarget={dragTargetSection === "active"}
                               />,
@@ -3738,7 +3754,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                               <SidebarSectionHeader
                                 key="snoozed-shelf-header"
                                 marker="snoozed-header"
-                                className="mt-auto"
+                                className="mt-2"
                                 label={gt("Snoozed", { $context: "sidebar section" })}
                                 count={snoozedThreads.length}
                                 toggle={{
@@ -3753,7 +3769,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                               <SidebarSectionHeader
                                 key="settled-shelf-header"
                                 marker="settled-header"
-                                className={cn(snoozedThreads.length === 0 && "mt-auto")}
+                                className="mt-2"
                                 label={gt("Settled", { $context: "sidebar section" })}
                                 count={settledCount}
                                 dragging={from !== null}

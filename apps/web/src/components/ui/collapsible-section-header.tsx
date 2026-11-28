@@ -4,6 +4,8 @@ import { cn } from "../../lib/utils";
 
 const tones = {
   muted: { label: "text-sidebar-muted-foreground", line: "bg-sidebar-border/50" },
+  working: { label: "text-primary", line: "bg-primary/20" },
+  snoozed: { label: "text-sidebar-foreground/80", line: "bg-primary/20" },
   emphasized: { label: "text-sidebar-foreground/80", line: "bg-sidebar-foreground/25" },
   accent: { label: "text-primary", line: "bg-primary/50" },
 } as const;
@@ -14,12 +16,14 @@ export function CollapsibleSectionHeader({
   tone = "muted",
   variant = "default",
   accessory,
+  showRule = false,
   ...buttonProps
 }: Omit<ComponentProps<"button">, "className" | "style" | "aria-expanded"> & {
   expanded: boolean;
   tone?: keyof typeof tones;
   variant?: "default" | "panel";
   accessory?: ReactNode;
+  showRule?: boolean;
 }) {
   return (
     <button
@@ -35,8 +39,12 @@ export function CollapsibleSectionHeader({
       <span className="min-w-0 truncate">{children}</span>
       <span
         aria-hidden
-        // A header with a trailing count drops its rule so it doesn't read as a leader.
-        className={cn("h-px min-w-2 flex-1", tones[tone].line, accessory && "invisible")}
+        // A header with a trailing count drops its rule unless showRule opts in (e.g. sidebar shelves).
+        className={cn(
+          "h-px min-w-2 flex-1",
+          tones[tone].line,
+          accessory && !showRule && "invisible",
+        )}
       />
       {accessory}
       <ChevronDownIcon

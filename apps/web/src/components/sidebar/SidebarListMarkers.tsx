@@ -78,14 +78,19 @@ export function SidebarSectionPlaceholder(props: {
 export function SidebarDragBoundary(props: {
   marker: "pinned-header" | "pinned-divider";
   label: string;
+  staticLabel?: string | undefined;
   visible: boolean;
   isDropTarget: boolean;
 }) {
+  const showStaticDivider = !props.visible && props.staticLabel !== undefined;
   return (
     <SortableSidebarMarker
       marker={props.marker}
       data-testid={`sidebar-${props.marker}`}
-      className="pointer-events-none relative mx-0.5 -mb-px h-0"
+      className={cn(
+        "pointer-events-none relative mx-0.5",
+        showStaticDivider ? "mt-2 h-8" : "-mb-px h-0",
+      )}
     >
       {props.visible ? (
         <div className="sidebar-drag-boundary-label absolute inset-x-2 top-1 flex h-4 items-center gap-2">
@@ -104,6 +109,11 @@ export function SidebarDragBoundary(props: {
               props.isDropTarget ? "bg-primary/50" : "bg-sidebar-foreground/25",
             )}
           />
+        </div>
+      ) : showStaticDivider ? (
+        <div className="flex h-8 w-full items-center gap-2 px-2 text-xs font-medium text-sidebar-muted-foreground">
+          <span className="min-w-0 truncate">{props.staticLabel}</span>
+          <span aria-hidden className="h-px min-w-2 flex-1 bg-sidebar-border/50" />
         </div>
       ) : null}
     </SortableSidebarMarker>
@@ -126,6 +136,7 @@ export function SidebarSectionHeader(props: {
       : props.marker === "snoozed-header"
         ? "snoozed"
         : "settled";
+  const restingTone = shelf === "working" ? "working" : shelf === "snoozed" ? "snoozed" : "muted";
   return (
     <SortableSidebarMarker
       marker={props.marker}
@@ -136,7 +147,8 @@ export function SidebarSectionHeader(props: {
         data-sidebar-row={`shelf:${shelf}`}
         onClick={props.toggle.onToggle}
         expanded={props.toggle.expanded}
-        tone={props.isDropTarget ? "accent" : props.dragging ? "emphasized" : "muted"}
+        showRule
+        tone={props.isDropTarget ? "accent" : props.dragging ? "emphasized" : restingTone}
         data-testid={`sidebar-${shelf}-shelf-toggle`}
         accessory={<span className="font-normal tabular-nums">{props.count}</span>}
       >
